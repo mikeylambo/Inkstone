@@ -1,0 +1,19 @@
+{
+  "name": "sumi",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "SUMI (codename SlayRank) - vertical slice. V0.2: Combat Feel.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.185.1",
+    "tone": "15.1.22"
+  },
+  "devDependencies": {
+    "vite": "8.2.2"
+  }
+}

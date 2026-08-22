@@ -1,0 +1,361 @@
+/**
+ * SUMI — tuning.js
+ * EVERY number lives here. Systems must not contain magic numbers.
+ * The debug overlay (~) reflects and live-edits this object by path.
+ *
+ * Frame-data convention: all times are SECONDS. A "frame" is 1/60s.
+ * anticipation -> active -> recovery. Total = sum of the three.
+ */
+
+export const TUNING = {
+  sim: {
+    hz: 60,
+    maxStepsPerFrame: 5,
+    maxFrameDelta: 0.25,
+  },
+
+  player: {
+    maxHp: 100,
+    radius: 0.55,
+    moveSpeed: 9.6,
+    accel: 92,
+    friction: 74,
+    airAccel: 34,
+    airMaxSpeed: 7.5,
+    turnRate: 18,          // rad/s toward move dir when free
+    lockTurnRate: 26,      // rad/s toward target when locked on
+    gravity: 30,
+    fallGravityMul: 1.45,  // heavier on the way down
+    attackGravityMul: 0.34, // hang while swinging in the air, so juggles hold
+    arenaRadius: 27.0,
+    hurtInvuln: 0.7,
+    hurtKnockback: 5.5,
+    hurtStun: 0.35,
+    landingRecovery: 0.06,
+  },
+
+  dash: {
+    speed: 25.0,
+    duration: 0.17,
+    endSpeedKeep: 0.30,    // fraction of dash speed retained on exit
+    cooldown: 0.40,
+    iframeStart: 0.02,
+    iframeEnd: 0.15,
+    airDashesMax: 1,
+    airLift: 1.5,          // small hop so air dash doesn't sink
+    shake: 0.02,
+  },
+
+  parry: {
+    windowFrames: 6,       // 6 frames of true parry
+    stanceDuration: 0.30,  // total time in stance (window + late-block tail)
+    recovery: 0.20,
+    cooldown: 0.32,
+    successHitStop: 0.13,
+    successShake: 0.34,
+    successZoom: -7.0,
+    staggerDuration: 1.05, // enemy stagger on parry
+    inkBurstCount: 26,
+    counterWindow: 0.55,   // free cancel into any attack after a parry
+  },
+
+  /**
+   * Attack magnetism — replaces the global lunge.
+   * Step-in ONLY happens while locked on. Gate G2.4 depends on this.
+   */
+  magnetism: {
+    enabled: 1,
+    requireLockOn: 1,      // 1 = never step without lock-on. Do not ship 0.
+    stepInRange: 5.0,      // target must be within this to step at all
+    stepInMax: 1.9,        // hard cap on distance moved per attack
+    standoff: 1.85,        // stop this far from target centre
+    airStepScale: 0.65,
+    maxAngle: 1.35,        // rad; target must be roughly in front
+  },
+
+  /**
+   * Attack personalities. No two share a silhouette in time.
+   *   hitStop  — frames of freeze on connect (this is most of "oomph")
+   *   shake    — camera trauma added on connect
+   *   zoom     — FOV delta punched on connect (negative = push in)
+   *   knock    — horizontal impulse applied to target
+   *   lift     — vertical impulse applied to target
+   *   selfLift — vertical impulse applied to PLAYER, on hit only
+   *   reaction — hit-reaction class the target plays
+   */
+  attacks: {
+    light1: {
+      anticipation: 0.050, active: 0.075, recovery: 0.120,
+      damage: 9, reach: 3.0, arc: 2.10, height: 2.6,
+      hitStop: 0.045, shake: 0.09, zoom: 0,
+      knock: 1.2, lift: 0, selfLift: 0,
+      reaction: 'flinch', cancelAfter: 0.070, chainAfter: 0.090,
+      whiffPitch: 1.00,
+    },
+    light2: {
+      anticipation: 0.045, active: 0.075, recovery: 0.135,
+      damage: 10, reach: 3.0, arc: 2.30, height: 2.6,
+      hitStop: 0.052, shake: 0.11, zoom: 0,
+      knock: 1.4, lift: 0, selfLift: 0,
+      reaction: 'flinch', cancelAfter: 0.070, chainAfter: 0.085,
+      whiffPitch: 1.14,
+    },
+    light3: {
+      // the punctuation mark: long wind-up, huge stop, knockback, splat-maker
+      anticipation: 0.225, active: 0.100, recovery: 0.300,
+      damage: 24, reach: 3.7, arc: 1.60, height: 3.0,
+      hitStop: 0.130, shake: 0.40, zoom: -4.0,
+      knock: 15.0, lift: 2.0, selfLift: 0,
+      reaction: 'stagger', cancelAfter: 0.120, chainAfter: 999,
+      whiffPitch: 0.72,
+    },
+    launcher: {
+      anticipation: 0.140, active: 0.100, recovery: 0.260,
+      damage: 14, reach: 3.2, arc: 1.55, height: 3.2,
+      hitStop: 0.085, shake: 0.24, zoom: -7.5,
+      knock: 0.6, lift: 15.5, selfLift: 12.0,
+      reaction: 'launch', cancelAfter: 0.090, chainAfter: 999,
+      whiffPitch: 0.90,
+    },
+    heavy: {
+      // grounded heavy — same family as light3 but a starter, wider arc
+      anticipation: 0.260, active: 0.110, recovery: 0.330,
+      damage: 26, reach: 3.9, arc: 2.60, height: 3.0,
+      hitStop: 0.140, shake: 0.44, zoom: -5.0,
+      knock: 16.5, lift: 2.4, selfLift: 0,
+      reaction: 'stagger', cancelAfter: 0.130, chainAfter: 999,
+      whiffPitch: 0.64,
+    },
+    airLight1: {
+      anticipation: 0.045, active: 0.070, recovery: 0.115,
+      damage: 8, reach: 2.9, arc: 2.10, height: 2.6,
+      hitStop: 0.042, shake: 0.08, zoom: 0,
+      knock: 0.5, lift: 2.6, selfLift: 0,
+      reaction: 'juggle', cancelAfter: 0.065, chainAfter: 0.080,
+      whiffPitch: 1.22,
+    },
+    airLight2: {
+      anticipation: 0.045, active: 0.070, recovery: 0.120,
+      damage: 9, reach: 2.9, arc: 2.30, height: 2.6,
+      hitStop: 0.048, shake: 0.09, zoom: 0,
+      knock: 0.5, lift: 2.8, selfLift: 0,
+      reaction: 'juggle', cancelAfter: 0.065, chainAfter: 0.080,
+      whiffPitch: 1.36,
+    },
+    airLight3: {
+      anticipation: 0.090, active: 0.090, recovery: 0.200,
+      damage: 15, reach: 3.2, arc: 2.00, height: 2.8,
+      hitStop: 0.095, shake: 0.22, zoom: -2.5,
+      knock: 2.2, lift: 4.2, selfLift: 2.2,
+      reaction: 'juggle', cancelAfter: 0.095, chainAfter: 999,
+      whiffPitch: 1.05,
+    },
+    dive: {
+      // air + heavy. hang -> plummet -> radial shockwave
+      hang: 0.190,           // gravity off, tiny rise, camera holds
+      hangRise: 2.2,
+      fallSpeed: 36.0,
+      minAltitude: 1.2,      // won't dive below this
+      recovery: 0.300,
+      damage: 28, radius: 4.4,
+      hitStop: 0.160, shake: 0.60, zoom: -10.0,
+      knock: 9.0, lift: 4.0,
+      reaction: 'groundBounce',
+      cancelAfter: 0.160,
+      airHitDamage: 12,      // clipping an enemy on the way down
+    },
+  },
+
+  /** Hit reactions. This is where weight is actually felt. */
+  reactions: {
+    flinch: {
+      hitstun: 0.20, recoil: 1.1, recoilDecay: 9.0,
+      squash: 0.22, poseTime: 0.14, flashTime: 0.07,
+    },
+    stagger: {
+      hitstun: 0.55, recoilDecay: 3.2,
+      squash: 0.34, poseTime: 0.40, flashTime: 0.10,
+      spinRate: 5.0,
+    },
+    launch: {
+      hitstun: 0.60, riseGravity: 13.0, fallGravity: 27.0,
+      spinRate: 3.0, squash: 0.30,
+    },
+    juggle: {
+      hitstun: 0.28, riseGravity: 11.0, fallGravity: 24.0,
+      hangBonus: 0.06,      // each air hit adds hang time
+      squash: 0.24,
+    },
+    groundBounce: {
+      hitstun: 0.50, bounceKeep: 0.55, minBounce: 5.5,
+      squash: 0.45, poseTime: 0.30,
+    },
+    wallSplat: {
+      boundaryEnabled: 1,    // the arena rim splats too, else heavies die at the edge
+      speedThreshold: 8.0,
+      flightFriction: 1.1,   // low drag while a staggered target is still flying,
+                             // so a heavy actually carries it into scenery
+      hitStop: 0.170, shake: 0.50, zoom: -6.0,
+      bonusDamage: 8,
+      pinTime: 0.42,
+      slideTime: 0.55,
+      squash: 0.55,
+      splatRadius: 1.9,
+    },
+    /** shared */
+    airHitLiftMin: 2.4,      // any air hit guarantees at least this much lift
+    hitFlashColor: 0xf5eedc,
+    knockFriction: 6.0,
+  },
+
+  oni: {
+    maxHp: 120,
+    radius: 0.95,
+    height: 2.8,
+    moveSpeed: 3.5,
+    accel: 14,
+    turnRate: 4.6,
+    separation: 2.9,         // push-apart radius between oni
+    separationForce: 16.0,   // they stacked into one blob at 6.0
+    orbitForce: 2.2,         // tangential drift so a crowd rings the player
+                             // instead of queueing up on one side
+    // telegraph must be readable: >= 0.5s of ink flare
+    attackRange: 2.9,
+    windup: 0.62,
+    active: 0.16,
+    recovery: 0.80,
+    cooldown: 1.15,
+    damage: 12,
+    swingReach: 3.4,
+    swingArc: 1.5,
+    approachStop: 2.4,
+    attackSlots: 3,          // how many oni may press the attack at once
+    holdBackDistance: 7.0,   // the rest circle at this range and wait
+    aggroDelay: 0.30,
+    gravity: 26,
+    deathTime: 0.45,
+    inkPoolRadius: 2.1,
+    inkPoolLife: 45.0,       // "persists" — long, but capped by fx.maxInkPools
+    flareMaxScale: 2.6,
+    hurtFlashHold: 0.06,
+  },
+
+  camera: {
+    fov: 58,
+    near: 0.1,
+    far: 400,
+    // free-follow
+    freeDistance: 9.8,
+    freeHeight: 5.6,
+    freeLookHeight: 1.6,
+    // lock-on framing: pull back as the pair separates so both stay in frame
+    lockDistanceBase: 7.6,
+    lockDistancePerSep: 0.62,
+    lockDistanceMax: 17.0,
+    lockHeight: 5.4,
+    lockHeightPerAltitude: 0.55,
+    // The camera must NOT sit on the player->target axis or the player
+    // eclipses the thing being hit. Placement yaw is swung off-axis by this
+    // much (radians) while the look direction still points at the pair.
+    lockYawOffset: 0.68,
+    playerBias: 0.55,        // 1 = centre on player, 0 = centre on target
+    lookAheadUp: 1.5,
+    posLerp: 9.0,
+    lookLerp: 12.0,
+    yawLerp: 7.0,
+    // shake
+    traumaDecay: 1.9,
+    traumaMaxOffset: 1.05,
+    traumaMaxRoll: 0.085,
+    traumaFreq: 27,
+    traumaMax: 1.2,
+    hitStopShake: 0.055,     // tiny high-freq buzz while frozen
+    kickScale: 0.55,         // directional punch along the hit vector
+    kickDecay: 0.00002,      // per second; snaps back fast
+    // zoom punch spring
+    zoomStiffness: 150,
+    zoomDamping: 15,
+    attackPushIn: 0.55,      // metres closer while attacking
+  },
+
+  fx: {
+    maxParticles: 320,
+    maxInkPools: 26,
+    maxDecals: 40,
+    sparkLife: 0.36,
+    sparkSpeed: 11,
+    petalLife: 1.3,
+    shockwaveLife: 0.45,
+    shockwaveMaxRadius: 5.2,
+    trailSamples: 30,
+    trailSubSamples: 4,      // pose evaluations per sim step while swinging.
+                             // A 75ms swing is under 5 steps at 60Hz, which is
+                             // far too coarse to describe an arc — so the blade
+                             // transform is evaluated between steps too.
+    trailLife: 0.22,
+    trailLeadFrac: 0.85,     // fraction of anticipation at which the stroke
+                             // starts drawing. Matches the pose track's '_mid'
+                             // key, so the trail only ever samples the swing —
+                             // never the arm travelling backwards on the raise.
+    trailWidthScale: 1.0,
+    impactRingLife: 0.22,
+  },
+
+  audio: {
+    masterVolume: -4,
+    whiffVolume: -18,
+    impactVolume: -3,
+    minRetrigger: 0.020,
+  },
+
+  combo: {
+    window: 2.6,             // seconds before the stroke counter resets
+    inputBuffer: 0.18,       // attack input buffering
+  },
+
+  spawn: {
+    baseCount: 1,            // V0.2 asks: can you hit ONE enemy for ten minutes?
+    respawnDelay: 1.10,
+    ringRadius: 8.0,
+    ringJitter: 3.0,
+  },
+
+  lockOn: {
+    maxRange: 26.0,
+    breakRange: 30.0,
+    switchDeadzone: 0.5,
+  },
+};
+
+/**
+ * Optional min/max hints for the debug sliders. Anything not listed
+ * gets an inferred range of [0, 4x default].
+ */
+export const TUNING_RANGES = {
+  'magnetism.requireLockOn': [0, 1, 1],
+  'magnetism.enabled': [0, 1, 1],
+  'parry.windowFrames': [1, 20, 1],
+  'camera.playerBias': [0, 1, 0.01],
+  'camera.fov': [30, 100, 1],
+  'sim.hz': [30, 120, 1],
+};
+
+/** Frozen copy so the debug panel can offer "reset to shipped value". */
+export const TUNING_DEFAULTS = structuredClone(TUNING);
+
+export function getTuning(path) {
+  return path.split('.').reduce((o, k) => (o == null ? o : o[k]), TUNING);
+}
+
+export function setTuning(path, value) {
+  const keys = path.split('.');
+  const last = keys.pop();
+  const obj = keys.reduce((o, k) => o[k], TUNING);
+  obj[last] = value;
+}
+
+/** Total duration of an attack, derived — never hand-write this. */
+export function attackDuration(a) {
+  if (a.hang !== undefined) return a.hang + a.recovery;
+  return a.anticipation + a.active + a.recovery;
+}

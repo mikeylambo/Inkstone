@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SUMI — V0.2 Combat Feel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Shippori+Mincho:wght@700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="paper-overlay"></div>
+  <div class="ink-wash-vignette"></div>
+
+  <div id="hud">
+    <!-- top left: player vitals -->
+    <div class="panel" id="vitals">
+      <div class="panel-title">
+        <span class="kanji">墨</span>
+        <span>INK / VITALS</span>
+        <span id="hp-text" class="mono">100 / 100</span>
+      </div>
+      <div class="bar"><div id="hp-bar" class="bar-fill hp"></div></div>
+      <div class="panel-sub">
+        <span id="lock-state">FREE</span>
+        <span id="combo-count">0 STROKES</span>
+      </div>
+    </div>
+
+    <!-- top right: target -->
+    <div class="panel hidden" id="target-info">
+      <div class="panel-title">
+        <span class="kanji">鬼</span>
+        <span id="target-name">ONI STAIN</span>
+        <span id="target-state" class="mono">IDLE</span>
+      </div>
+      <div class="bar"><div id="target-hp-bar" class="bar-fill enemy"></div></div>
+    </div>
+
+    <!-- reticle -->
+    <div id="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
+
+    <!-- bottom: controls -->
+    <div class="panel" id="controls">
+      <div><b>WASD</b> Move</div>
+      <div><b class="c-ink">LMB / J</b> Light</div>
+      <div><b class="c-gold">RMB / K</b> Launcher</div>
+      <div><b class="c-red">L</b> Heavy · air = Dive</div>
+      <div><b class="c-green">Space</b> Dash</div>
+      <div><b class="c-blue">Shift / F</b> Parry</div>
+      <div><b class="c-purple">Q / Tab</b> Lock-On</div>
+      <div><b>~</b> Debug</div>
+    </div>
+
+    <button id="start-btn">始 &nbsp;BEGIN · ENABLE AUDIO</button>
+
+    <div id="hit-banner"></div>
+  </div>
+
+  <div id="debug-panel" class="hidden"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
