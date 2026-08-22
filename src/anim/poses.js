@@ -109,6 +109,26 @@ export const POSES = {
     sword: [0, 0, 0], y: 0.08,
   }),
 
+  // --- stinger: lock-on gap-closing thrust ---------------------------------
+  // Reuses the light-1 family with a hard forward lean and the blade levelled
+  // into a thrust rather than a cut.
+  st_windup: P({
+    torso: [-0.20, 0.40, 0], rArm: [-0.55, 0.85, 0.15], lArm: [-0.5, -0.25, 0],
+    sword: [0, 0, -1.1], rLeg: [-0.30, 0, 0], lLeg: [0.22, 0, 0], y: 0.06,
+  }),
+  st_mid: P({
+    torso: [0.35, 0.10, 0], rArm: [-1.15, 0.15, 0], lArm: [-0.5, 0.1, 0],
+    sword: [-0.35, 0, -0.2], rLeg: [0.35, 0, 0], lLeg: [-0.30, 0, 0], y: -0.14,
+  }),
+  st_strike: P({
+    torso: [0.62, -0.05, 0], rArm: [-1.45, 0, 0], lArm: [-0.2, 0.45, 0],
+    sword: [-0.55, 0, 0], rLeg: [0.70, 0, 0], lLeg: [-0.55, 0, 0], y: -0.26,
+  }),
+  st_recover: P({
+    torso: [0.34, 0, 0], rArm: [-0.9, 0.1, 0], lArm: [-0.3, 0.2, 0],
+    sword: [0.1, 0, -0.4], rLeg: [0.34, 0, 0], lLeg: [-0.24, 0, 0], y: -0.10,
+  }),
+
   // --- air ------------------------------------------------------------------
   air_idle: P({
     torso: [0.10, 0, 0], rArm: [-0.45, 0.25, 0], lArm: [-0.55, -0.3, 0],
@@ -229,6 +249,15 @@ export const TRACKS = {
     { p: 1.5, pose: 'lg_strike', ease: 'outQuint' },
     { p: 2.0, pose: 'lg_strike', ease: 'linear' },
     { p: 3.0, pose: 'lg_recover', ease: 'inOutQuad' },
+  ],
+  stinger: [
+    { p: 0.0, pose: 'ready', ease: 'outCubic' },
+    { p: 0.55, pose: 'st_windup', ease: 'anticipate' },
+    { p: 0.86, pose: 'st_windup', ease: 'linear' },
+    { p: 1.0, pose: 'st_mid', ease: 'outQuad' },
+    { p: 1.45, pose: 'st_strike', ease: 'outQuint' },
+    { p: 2.0, pose: 'st_strike', ease: 'linear' },
+    { p: 3.0, pose: 'st_recover', ease: 'inOutQuad' },
   ],
   airLight1: [
     { p: 0.0, pose: 'air_idle', ease: 'outCubic' },

@@ -115,8 +115,11 @@ export function applyEnemyHit(enemy, atk, dir, hitPoint, opts = {}) {
   fx.inkBurst(hitPoint, Math.round(8 + damage * 0.45), 'sumi', 8 + damage * 0.35, dir);
   fx.slashSpray(hitPoint, dir, Math.round(4 + damage * 0.25));
 
-  World.requestHitStop(opts.hitStop ?? atk.hitStop);
-  World.camRig.addTrauma(opts.shake ?? atk.shake, dir);
+  // Kick scales with hit-stop, so a light taps the frame and a heavy shoves it.
+  // Shake alone reads as noise; the directional shove is what sells the hit.
+  const stop = opts.hitStop ?? atk.hitStop;
+  World.requestHitStop(stop);
+  World.camRig.addTrauma(opts.shake ?? atk.shake, dir, stop * TUNING.camera.kickPerHitStop);
   if (atk.zoom) World.camRig.zoomPunch(atk.zoom);
   Audio.impact(opts.sound ?? atk.sound);
   World.addCombo(1);

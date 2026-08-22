@@ -3,7 +3,8 @@
 A high-impact character-action scoresmith where every sword stroke writes on the
 battlefield, and what you've written changes how the fight plays.
 
-**Current phase: V0.2 — Combat Feel.** See [REPORT.md](REPORT.md) for gate results.
+**Current phase: V0.2.1 — Restore Sword Feel / Fix Controls.**
+See [REPORT.md](REPORT.md) for gate results.
 
 ## Run it
 
@@ -25,14 +26,28 @@ run seed — same seed + same inputs produce the same run.
 | Move | WASD / Arrows | Left stick |
 | Light (×3 string) | LMB or `J` | X |
 | Launcher | RMB or `K` | Y |
-| Heavy — Dive in air | `L` or MMB | RT |
-| Dash (8-dir, i-frames) | `Space` | A |
-| Parry | `Shift` or `F` | B / LT |
-| Lock-on / cycle target | `Q` or `Tab` | LB / RB |
+| Heavy — Dive in air | MMB or `L` | B |
+| Jump | `Space` | A |
+| Dash (8-dir, i-frames) | `Shift` | RT |
+| Parry | `F` | LB |
+| Lock-on (hold) | `Q` or `Tab` | RB |
+| Camera nudge (free cam) | — | Right stick |
 | Debug overlay | `` ` `` (backquote) | — |
 
-Movement is camera-relative. Lock-on cycles through targets; pressing it with a
-single enemy alive releases the lock.
+Lock-on directional moves (while locked):
+
+| Input | Move |
+| --- | --- |
+| toward + light | Stinger — gap-closing thrust |
+| away + light | High Time — launcher |
+| toward + heavy | Splitter |
+
+Movement is camera-relative and the basis latches while the stick is held, so a
+moving camera can't curve a held direction. Jump cancels an attack past its
+`cancelAfter` — that's the jump-cancel air combos are built on.
+
+Every binding is remappable from the debug overlay (`` ` `` → *bindings*), and
+persists in `localStorage`.
 
 ## Layout
 
@@ -52,7 +67,9 @@ src/
   combat/hits.js     Hit resolution and every hit-reaction class
   entities/player.js Player kit and state machine
   entities/oni.js    Enemy 1 — Oni Stain
-  gfx/               Materials, arena, sword ribbon, pooled effects
+  gfx/               Materials, arena, pooled effects
+  gfx/slashfan.js    The stylized attack mark — where impact comes from
+  gfx/trail.js       Ribbon: the physical blade path, secondary to the fan
 tools/shotserver.mjs Dev-only screenshot sink (see below)
 ```
 

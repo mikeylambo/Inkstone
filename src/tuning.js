@@ -32,6 +32,11 @@ export const TUNING = {
     hurtKnockback: 5.5,
     hurtStun: 0.35,
     landingRecovery: 0.06,
+    jumpVel: 13.5,
+    jumpCutMul: 0.45,      // releasing early clips upward velocity
+    coyoteTime: 0.08,
+    airJumpsMax: 1,
+    jumpCancelEnabled: 1,  // jump cancels an attack past cancelAfter (DMC JC)
   },
 
   dash: {
@@ -71,6 +76,8 @@ export const TUNING = {
     standoff: 1.85,        // stop this far from target centre
     airStepScale: 0.65,
     maxAngle: 1.35,        // rad; target must be roughly in front
+    minStepTime: 0.05,     // zero-anticipation lights would otherwise teleport
+                           // the whole step-in on frame 1
   },
 
   /**
@@ -85,19 +92,21 @@ export const TUNING = {
    */
   attacks: {
     light1: {
-      anticipation: 0.050, active: 0.075, recovery: 0.120,
+      // zero anticipation: the '_mid' pose lands on frame 1. This is the
+      // prototype's instant snap, restored deliberately.
+      anticipation: 0.000, active: 0.075, recovery: 0.120,
       damage: 9, reach: 3.0, arc: 2.10, height: 2.6,
-      hitStop: 0.045, shake: 0.09, zoom: 0,
+      hitStop: 0.060, shake: 0.09, zoom: 0,
       knock: 1.2, lift: 0, selfLift: 0,
-      reaction: 'flinch', cancelAfter: 0.070, chainAfter: 0.090,
+      reaction: 'flinch', cancelAfter: 0.070, chainAfter: 0.060,
       whiffPitch: 1.00,
     },
     light2: {
-      anticipation: 0.045, active: 0.075, recovery: 0.135,
+      anticipation: 0.000, active: 0.075, recovery: 0.135,
       damage: 10, reach: 3.0, arc: 2.30, height: 2.6,
-      hitStop: 0.052, shake: 0.11, zoom: 0,
+      hitStop: 0.065, shake: 0.11, zoom: 0,
       knock: 1.4, lift: 0, selfLift: 0,
-      reaction: 'flinch', cancelAfter: 0.070, chainAfter: 0.085,
+      reaction: 'flinch', cancelAfter: 0.070, chainAfter: 0.060,
       whiffPitch: 1.14,
     },
     light3: {
@@ -116,6 +125,7 @@ export const TUNING = {
       knock: 0.6, lift: 15.5, selfLift: 12.0,
       reaction: 'launch', cancelAfter: 0.090, chainAfter: 999,
       whiffPitch: 0.90,
+      holdFollow: 1,       // hold the button to ride the launch, tap to stay down
     },
     heavy: {
       // grounded heavy — same family as light3 but a starter, wider arc
@@ -127,17 +137,17 @@ export const TUNING = {
       whiffPitch: 0.64,
     },
     airLight1: {
-      anticipation: 0.045, active: 0.070, recovery: 0.115,
+      anticipation: 0.000, active: 0.070, recovery: 0.115,
       damage: 8, reach: 2.9, arc: 2.10, height: 2.6,
-      hitStop: 0.042, shake: 0.08, zoom: 0,
+      hitStop: 0.055, shake: 0.08, zoom: 0,
       knock: 0.5, lift: 2.6, selfLift: 0,
       reaction: 'juggle', cancelAfter: 0.065, chainAfter: 0.080,
       whiffPitch: 1.22,
     },
     airLight2: {
-      anticipation: 0.045, active: 0.070, recovery: 0.120,
+      anticipation: 0.000, active: 0.070, recovery: 0.120,
       damage: 9, reach: 2.9, arc: 2.30, height: 2.6,
-      hitStop: 0.048, shake: 0.09, zoom: 0,
+      hitStop: 0.055, shake: 0.09, zoom: 0,
       knock: 0.5, lift: 2.8, selfLift: 0,
       reaction: 'juggle', cancelAfter: 0.065, chainAfter: 0.080,
       whiffPitch: 1.36,
@@ -149,6 +159,17 @@ export const TUNING = {
       knock: 2.2, lift: 4.2, selfLift: 2.2,
       reaction: 'juggle', cancelAfter: 0.095, chainAfter: 999,
       whiffPitch: 1.05,
+    },
+    stinger: {
+      // lock-on + toward + light. Gap-closer: it is ALLOWED a long step-in,
+      // which is why it carries its own magnetStepInMax.
+      anticipation: 0.070, active: 0.090, recovery: 0.280,
+      damage: 18, reach: 3.4, arc: 1.10, height: 2.8,
+      hitStop: 0.105, shake: 0.30, zoom: -5.0,
+      knock: 12.0, lift: 1.2, selfLift: 0,
+      reaction: 'stagger', cancelAfter: 0.110, chainAfter: 999,
+      whiffPitch: 0.84,
+      magnetStepInMax: 4.5,
     },
     dive: {
       // air + heavy. hang -> plummet -> radial shockwave
@@ -241,7 +262,7 @@ export const TUNING = {
   },
 
   camera: {
-    fov: 58,
+    fov: 62,
     near: 0.1,
     far: 400,
     // free-follow
@@ -260,7 +281,7 @@ export const TUNING = {
     lockYawOffset: 0.68,
     playerBias: 0.55,        // 1 = centre on player, 0 = centre on target
     lookAheadUp: 1.5,
-    posLerp: 9.0,
+    posLerp: 6.5,   // frame lags the character a touch
     lookLerp: 12.0,
     yawLerp: 7.0,
     // shake
@@ -275,7 +296,14 @@ export const TUNING = {
     // zoom punch spring
     zoomStiffness: 150,
     zoomDamping: 15,
-    attackPushIn: 0.55,      // metres closer while attacking
+    // Push-in is a spring, not a lerp: it snaps in over pushInAttackTime and
+    // releases across the attack's own recovery window.
+    attackPushIn: 1.6,       // metres closer while attacking
+    pushInAttackTime: 0.033, // ~2 sim steps to arrive
+    pushInMinRelease: 0.12,  // floor on the release time
+    kickPerHitStop: 6.0,     // hit kick = hitStop * this (light ~0.35, heavy ~0.9)
+    freeYawChase: 0.2,       // multiplier on yawLerp when not locked on
+    freeYawNudgeRate: 2.2,   // rad/s from the right stick, free camera only
   },
 
   fx: {
@@ -287,6 +315,32 @@ export const TUNING = {
     petalLife: 1.3,
     shockwaveLife: 0.45,
     shockwaveMaxRadius: 5.2,
+    // --- SlashFan: the stylized attack mark. This, not the blade path, is
+    // where the sword's impact comes from. Per-attack specs live here rather
+    // than in ATTACK_META so the debug panel can tune the planes live.
+    fan: {
+      opacity: 0.95,
+      fadeRate: 4.5,
+      widthScale: 1.0,
+      default: { innerR: 1.2, outerR: 3.4, sweep: 2.356, rot: [1.5708, 0, 0], offsetY: 1.2 },
+      perAttack: {
+        light1:    { innerR: 1.2, outerR: 3.4, sweep: 2.356, rot: [0.7854, 0, 0], offsetY: 1.2 },
+        // Prototype L2 was [-PI/3, PI/2, 0]. That was authored for the
+        // prototype's straight-behind camera; under V0.2.1's off-axis rig it
+        // renders edge-on and the mark is effectively invisible, which defeats
+        // the point of the fan. Re-authored onto a plane that reads, still
+        // clearly distinct from L1's.
+        light2:    { innerR: 1.2, outerR: 3.4, sweep: 2.356, rot: [1.10, 0.60, 0.90], offsetY: 1.2 },
+        light3:    { innerR: 1.0, outerR: 4.0, sweep: 2.618, rot: [1.5708, 0, 0.6], offsetY: 1.4 },
+        heavy:     { innerR: 0.9, outerR: 4.2, sweep: 2.880, rot: [1.2, 0.4, -0.5], offsetY: 1.3 },
+        launcher:  { innerR: 1.2, outerR: 3.4, sweep: 2.356, rot: [0, 1.5708, 1.5708], offsetY: 1.2 },
+        stinger:   { innerR: 0.5, outerR: 3.9, sweep: 0.900, rot: [1.5708, 0, 0], offsetY: 1.3 },
+        airLight1: { innerR: 1.1, outerR: 3.1, sweep: 2.356, rot: [1.0472, 0, 0], offsetY: 1.1 },
+        airLight2: { innerR: 1.1, outerR: 3.1, sweep: 2.356, rot: [-0.9, 1.5708, 0], offsetY: 1.1 },
+        airLight3: { innerR: 1.0, outerR: 3.6, sweep: 2.618, rot: [1.5708, 0.8, 0], offsetY: 1.2 },
+        dive:      { innerR: 0.6, outerR: 4.4, sweep: 6.283, rot: [1.5708, 0, 0], offsetY: 0.4 },
+      },
+    },
     trailSamples: 30,
     trailSubSamples: 4,      // pose evaluations per sim step while swinging.
                              // A 75ms swing is under 5 steps at 60Hz, which is
@@ -297,7 +351,7 @@ export const TUNING = {
                              // starts drawing. Matches the pose track's '_mid'
                              // key, so the trail only ever samples the swing —
                              // never the arm travelling backwards on the raise.
-    trailWidthScale: 1.0,
+    trailWidthScale: 1.3,   // Ribbon is secondary to the fan, but needs body
     impactRingLife: 0.22,
   },
 
@@ -310,7 +364,7 @@ export const TUNING = {
 
   combo: {
     window: 2.6,             // seconds before the stroke counter resets
-    inputBuffer: 0.18,       // attack input buffering
+    inputBuffer: 0.22,       // attack input buffering
   },
 
   spawn: {
@@ -318,6 +372,28 @@ export const TUNING = {
     respawnDelay: 1.10,
     ringRadius: 8.0,
     ringJitter: 3.0,
+  },
+
+  controls: {
+    invertX: 0,
+    invertY: 0,
+    /** 'camera' = stick is camera-relative. 'character' = stick forward is facing. */
+    scheme: 'camera',
+    /**
+     * Latch the movement basis while the stick is held, so a moving camera
+     * cannot curve a held direction into a spiral (gate F4).
+     */
+    latchBasis: 1,
+    latchBreakAngle: 1.05,   // rad; re-latch if the stick swings more than this
+    deadzone: 0.22,
+    outerDeadzone: 0.95,
+    lockIsHold: 1,           // 1 = hold to lock on, 0 = press to toggle/cycle
+    lockFaceWhileMoving: 1,  // strafe-face the target instead of the stick
+    /** Lock-on directional attacks, individually gated. */
+    stingerEnabled: 1,
+    highTimeEnabled: 1,
+    splitterEnabled: 1,
+    dirThreshold: 0.55,      // cos-ish gate for "toward" / "away" vs the target
   },
 
   lockOn: {

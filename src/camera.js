@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { TUNING } from './tuning.js';
 import { World } from './world.js';
+import { Input } from './input.js';
 
 const _look = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
@@ -30,17 +31,43 @@ export class CameraRig {
     this.look = new THREE.Vector3();
     this.prevLook = this.look.clone();
 
+    // the on-screen forward direction (camera position -> look point).
+    // Movement is built from this, so lock-on framing and control agree.
+    this.screenYaw = 0;
+
     this.trauma = 0;
     this.kick = new THREE.Vector3();
     this.fovOffset = 0;
     this.fovVel = 0;
     this.shakeSeed = 0;
+
+    // attack push-in, driven as a spring rather than a lerp: it must arrive
+    // in ~2 sim steps and then release across the attack's own recovery
+    this.pushIn = 0;
+    this.pushInTarget = 0;
+    this.pushInRate = 0;
   }
 
-  addTrauma(amount, dir = null) {
+  /**
+   * @param {number} amount     trauma added to the shake accumulator
+   * @param {THREE.Vector3} dir direction the hit travelled
+   * @param {number} kickAmount explicit kick magnitude; defaults to trauma-scaled
+   */
+  addTrauma(amount, dir = null, kickAmount = null) {
     const C = TUNING.camera;
     this.trauma = Math.min(C.traumaMax, this.trauma + amount);
-    if (dir) this.kick.addScaledVector(dir, amount * C.kickScale);
+    if (dir) {
+      const k = kickAmount != null ? kickAmount : amount * C.kickScale;
+      this.kick.addScaledVector(dir, k);
+    }
+  }
+
+  /** Drive the push-in toward `target` metres over `seconds`. */
+  pushTo(target, seconds) {
+    const C = TUNING.camera;
+    this.pushInTarget = target;
+    const t = Math.max(C.pushInMinRelease, seconds);
+    this.pushInRate = Math.abs(target - this.pushIn) / t;
   }
 
   zoomPunch(delta) {
@@ -75,10 +102,19 @@ export class CameraRig {
       _look.y = player.position.y * 0.6 + C.freeLookHeight;
     }
 
-    const yawRate = target ? C.yawLerp : C.yawLerp * 0.45;
+    const yawRate = target ? C.yawLerp : C.yawLerp * C.freeYawChase;
     this.yaw += angleDelta(wantYaw, this.yaw) * Math.min(1, yawRate * dt);
 
-    if (player.state === 'attack' || player.state === 'dive') distance -= C.attackPushIn;
+    // right stick nudges the free camera only; lock-on framing owns the yaw
+    if (!target && Input.camNudge) this.yaw += Input.camNudge * C.freeYawNudgeRate * dt;
+
+    // push-in spring
+    if (this.pushIn !== this.pushInTarget) {
+      const d = this.pushInTarget - this.pushIn;
+      const stepAmt = this.pushInRate * dt;
+      this.pushIn = Math.abs(d) <= stepAmt ? this.pushInTarget : this.pushIn + Math.sign(d) * stepAmt;
+    }
+    distance -= this.pushIn;
 
     // placement yaw is swung off the fight axis so the pair separates on
     // screen; the look direction still points down the middle of the pair
@@ -91,6 +127,10 @@ export class CameraRig {
     this.prevLook.copy(this.look);
     this.pos.lerp(_tmp, Math.min(1, C.posLerp * dt));
     this.look.lerp(_look, Math.min(1, C.lookLerp * dt));
+
+    const dx = this.look.x - this.pos.x;
+    const dz = this.look.z - this.pos.z;
+    if (dx * dx + dz * dz > 1e-6) this.screenYaw = Math.atan2(dx, dz);
 
     // trauma + kick decay
     this.trauma = Math.max(0, this.trauma - C.traumaDecay * dt);

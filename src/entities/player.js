@@ -13,8 +13,9 @@ import { Input } from '../input.js';
 import { Audio } from '../audio.js';
 import { PALETTE, createSumiMaterial, addOutline } from '../gfx/materials.js';
 import { Ribbon } from '../gfx/trail.js';
+import { SlashFan } from '../gfx/slashfan.js';
 import { POSES, TRACKS, evalTrack, blendPoses, applyPose, makeScratchPose, EASE } from '../anim/poses.js';
-import { getAttack, phaseOf, isActiveFrames, GROUND_LIGHT_CHAIN, AIR_LIGHT_CHAIN } from '../combat/attacks.js';
+import { getAttack, phaseOf, isActiveFrames, GROUND_LIGHT_CHAIN, AIR_LIGHT_CHAIN, DIR_MOVES } from '../combat/attacks.js';
 import { resolveAttackHits, resolveRadialHits } from '../combat/hits.js';
 
 /** World-space ink line weight on the player. */
@@ -22,6 +23,9 @@ const OUTLINE = 0.075;
 
 const _v = new THREE.Vector3();
 const _mv = new THREE.Vector3();
+const _camF = new THREE.Vector3();
+const _camR = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 const _tip = new THREE.Vector3();
 const _hilt = new THREE.Vector3();
 
@@ -63,12 +67,26 @@ export class Player {
     this.chainTimer = 0;
     this.airChainIndex = 0;
 
+    // jump
+    this.airJumps = TUNING.player.airJumpsMax;
+    this.coyoteTimer = 0;
+    this.jumpCutArmed = false;
+
+    // movement basis latch (gate F4)
+    this.lockHeldPrev = false;
+    this.basisLatched = false;
+    this.latchF = new THREE.Vector3(0, 0, 1);
+    this.latchR = new THREE.Vector3(1, 0, 0);
+    this.latchAngle = 0;
+
     this.scratch = makeScratchPose();
     this.scratchB = makeScratchPose();
 
     this.buildModel();
     scene.add(this.mesh);
     this.ribbon = new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi });
+    // the fan is parented to the player group so it swings with the body
+    this.fan = new SlashFan(this.mesh);
   }
 
   // --------------------------------------------------------------- model
@@ -155,7 +173,7 @@ export class Player {
     // inner edge of the ribbon sits up the blade, not at the grip, so the
     // trail reads as a stroke following the tip rather than a fan off the body
     this.hiltMarker = new THREE.Object3D();
-    this.hiltMarker.position.set(0, 1.05, 0);
+    this.hiltMarker.position.set(0, 0.6, 0);
     this.sword.add(this.hiltMarker);
 
     this.rig = {
@@ -169,15 +187,54 @@ export class Player {
   get height() { return 1.9; }
   get radius() { return TUNING.player.radius; }
 
+  /**
+   * Build the movement basis from what is actually on screen.
+   *
+   * D1: camera-right is derived as cross(forward, up), never hand-written, so
+   *     it cannot silently flip sign again.
+   * D2: forward is the camera's real look direction (position -> look point),
+   *     which already contains lockYawOffset, so lock-on cannot drift. It is
+   *     read from sim state rather than the render matrix so replays stay
+   *     deterministic.
+   * D3: the basis is latched while the stick is held, so a camera that is
+   *     still swinging cannot curve a held direction into a spiral.
+   */
   moveInputWorld() {
-    const yaw = World.camRig ? World.camRig.yaw : 0;
+    const C = TUNING.controls;
     const ix = Input.move.x, iy = Input.move.y;
-    if (Math.abs(ix) < 0.01 && Math.abs(iy) < 0.01) return null;
-    // camera-relative: forward is away from the camera
-    const sin = Math.sin(yaw), cos = Math.cos(yaw);
-    const fx = sin, fz = cos;        // camera forward on XZ
-    const rx = cos, rz = -sin;       // camera right
-    _mv.set(fx * -iy + rx * ix, 0, fz * -iy + rz * ix);
+    if (Math.abs(ix) < 0.01 && Math.abs(iy) < 0.01) {
+      this.basisLatched = false;
+      return null;
+    }
+
+    // stick direction in screen terms: 0 = away from camera, +pi/2 = right
+    const rawAngle = Math.atan2(ix, -iy);
+
+    if (C.scheme === 'character') {
+      _camF.set(Math.sin(this.facing), 0, Math.cos(this.facing));
+    } else {
+      const yaw = World.camRig ? World.camRig.screenYaw : 0;
+      _camF.set(Math.sin(yaw), 0, Math.cos(yaw));
+    }
+    _camR.crossVectors(_camF, UP).normalize();
+
+    if (C.latchBasis && C.scheme !== 'character') {
+      const swung = Math.abs(angleDelta(rawAngle, this.latchAngle)) > C.latchBreakAngle;
+      if (!this.basisLatched || swung) {
+        this.latchF.copy(_camF);
+        this.latchR.copy(_camR);
+        this.latchAngle = rawAngle;
+        this.basisLatched = true;
+      }
+      _camF.copy(this.latchF);
+      _camR.copy(this.latchR);
+    } else {
+      this.basisLatched = false;
+    }
+
+    _mv.set(0, 0, 0);
+    _mv.addScaledVector(_camR, ix);
+    _mv.addScaledVector(_camF, -iy);
     if (_mv.lengthSq() > 1) _mv.normalize();
     return _mv;
   }
@@ -208,6 +265,7 @@ export class Player {
     this.animate(dt);
     this.sampleRibbon();
     this.ribbon.update(dt);
+    this.fan.update(dt);
   }
 
   tickTimers(dt) {
@@ -218,6 +276,7 @@ export class Player {
     this.parryCooldown = dec(this.parryCooldown);
     this.parrySuccess = dec(this.parrySuccess);
     this.landTimer = dec(this.landTimer);
+    this.coyoteTimer = dec(this.coyoteTimer);
     if (this.chainTimer > 0) {
       this.chainTimer = dec(this.chainTimer);
       if (this.chainTimer === 0) this.chainIndex = 0;
@@ -225,20 +284,45 @@ export class Player {
   }
 
   handleInput(dt) {
-    // lock-on is always available
-    if (Input.consume('lock')) this.toggleLockOn();
+    const C = TUNING.controls;
+    const STEP = 1 / TUNING.sim.hz;
+
+    // --- lock-on: hold-to-lock, or press-to-toggle ---
+    if (C.lockIsHold) {
+      const held = Input.isHeld('lock');
+      if (held && !this.lockHeldPrev) this.acquireLock();
+      else if (!held && this.lockHeldPrev) World.lockTarget = null;
+      this.lockHeldPrev = held;
+      Input.consume('lock');
+    } else if (Input.consume('lock')) {
+      this.toggleLockOn();
+    }
 
     const atk = this.attack ? this.attack.def : null;
     const e = this.attack ? this.attack.elapsed : 0;
     const inRecovery = atk ? e >= atk.anticipation + atk.active : false;
+    const pastCancel = atk ? e >= atk.cancelAfter : false;
+    const diveCancelable = this.state === 'dive' && this.dive &&
+      this.dive.phase === 'land' && this.dive.timer >= TUNING.attacks.dive.cancelAfter;
+
+    // --- jump. Also the DMC jump-cancel: this is why air combos work. ---
+    if (Input.peek('jump')) {
+      const jumpCancel = this.state === 'attack' && TUNING.player.jumpCancelEnabled && pastCancel;
+      const canJump = this.state === 'free' || this.state === 'parry' || jumpCancel || diveCancelable;
+      if (canJump && (this.grounded || this.coyoteTimer > 0 || this.airJumps > 0)) {
+        Input.consume('jump');
+        this.startJump();
+        return;
+      }
+    }
 
     // --- dash: cancels almost everything (dodge-cancel) ---
     if (Input.peek('dash') && this.dashCooldown <= 0) {
       const canCancel =
         this.state === 'free' ||
         this.state === 'parry' ||
-        (this.state === 'attack' && e >= atk.cancelAfter) ||
-        (this.state === 'dive' && this.dive.phase === 'land' && this.dive.timer >= TUNING.attacks.dive.cancelAfter);
+        (this.state === 'attack' && pastCancel) ||
+        diveCancelable;
       if (canCancel && (this.grounded || this.airDashes > 0)) {
         Input.consume('dash');
         this.startDash();
@@ -259,26 +343,35 @@ export class Player {
     const freeToStart = this.state === 'free' || this.parrySuccess > 0;
 
     if (Input.peek('light')) {
-      if (freeToStart || (this.state === 'attack' && e >= atk.chainAfter) ||
-          (this.state === 'attack' && inRecovery)) {
-        Input.consume('light');
-        this.startLight();
+      if (freeToStart || (this.state === 'attack' && (e >= atk.chainAfter || inRecovery))) {
+        const intent = this.lockDirIntent();
+        if (intent === 'toward' && C.stingerEnabled) {
+          this.startAttack(DIR_MOVES.stinger, Input.consumeWithCatchUp('light', STEP));
+          return;
+        }
+        if (intent === 'away' && C.highTimeEnabled && this.grounded) {
+          this.startAttack(DIR_MOVES.highTime, Input.consumeWithCatchUp('light', STEP));
+          return;
+        }
+        this.startLight(Input.consumeWithCatchUp('light', STEP));
         return;
       }
     }
+
     if (Input.peek('launcher')) {
-      if (freeToStart || (this.state === 'attack' && (e >= atk.cancelAfter || inRecovery))) {
-        Input.consume('launcher');
-        if (this.grounded) this.startAttack('launcher');
-        else this.startAttack('airLight3');
+      if (freeToStart || (this.state === 'attack' && (pastCancel || inRecovery))) {
+        const catchUp = Input.consumeWithCatchUp('launcher', STEP);
+        this.startAttack(this.grounded ? 'launcher' : 'airLight3', catchUp);
         return;
       }
     }
+
     if (Input.peek('heavy')) {
-      if (freeToStart || (this.state === 'attack' && (e >= atk.cancelAfter || inRecovery))) {
+      if (freeToStart || (this.state === 'attack' && (pastCancel || inRecovery))) {
         if (this.grounded) {
-          Input.consume('heavy');
-          this.startAttack('heavy');
+          const intent = this.lockDirIntent();
+          const key = (intent === 'toward' && C.splitterEnabled) ? DIR_MOVES.splitter : 'heavy';
+          this.startAttack(key, Input.consumeWithCatchUp('heavy', STEP));
         } else if (this.position.y >= TUNING.attacks.dive.minAltitude) {
           Input.consume('heavy');
           this.startDive();
@@ -288,7 +381,29 @@ export class Player {
     }
   }
 
-  startLight() {
+  /**
+   * Is the stick pushed toward or away from the locked target? Drives the
+   * lock-on directional moves. Returns null when not locked or ambiguous.
+   */
+  lockDirIntent() {
+    const C = TUNING.controls;
+    const t = World.lockTarget;
+    if (!t || t.dead) return null;
+    const mv = this.moveInputWorld();
+    if (!mv) return null;
+    const mlen = Math.hypot(mv.x, mv.z);
+    if (mlen < 1e-4) return null;
+    _v.subVectors(t.position, this.position);
+    _v.y = 0;
+    if (_v.lengthSq() < 1e-6) return null;
+    _v.normalize();
+    const dot = (mv.x * _v.x + mv.z * _v.z) / mlen;
+    if (dot > C.dirThreshold) return 'toward';
+    if (dot < -C.dirThreshold) return 'away';
+    return null;
+  }
+
+  startLight(catchUp = 0) {
     if (this.grounded) {
       const chain = GROUND_LIGHT_CHAIN;
       let idx = this.chainIndex;
@@ -298,7 +413,7 @@ export class Player {
       if (idx >= chain.length) idx = 0;
       this.chainIndex = idx;
       this.chainTimer = TUNING.combo.window;
-      this.startAttack(chain[idx]);
+      this.startAttack(chain[idx], catchUp);
     } else {
       const chain = AIR_LIGHT_CHAIN;
       let idx = this.airChainIndex;
@@ -307,13 +422,32 @@ export class Player {
       }
       if (idx >= chain.length) idx = 0;
       this.airChainIndex = idx;
-      this.startAttack(chain[idx]);
+      this.startAttack(chain[idx], catchUp);
     }
+  }
+
+  // ----------------------------------------------------------------- jump
+
+  startJump() {
+    const P = TUNING.player;
+    if (!this.grounded && this.coyoteTimer <= 0) this.airJumps--;
+    this.grounded = false;
+    this.coyoteTimer = 0;
+    this.vel.y = P.jumpVel;
+    this.jumpCutArmed = true;
+    this.attack = null;
+    this.dive = null;
+    this.state = 'free';
+    this.airChainIndex = 0;
+    this.ribbon.clear();
+    World.camRig.pushTo(0, TUNING.camera.pushInMinRelease);
+    Audio.dash();
+    World.fx.inkBurst(this.position.clone().setY(0.15), 5, 'sumi', 4);
   }
 
   // ------------------------------------------------------------- attacks
 
-  startAttack(key) {
+  startAttack(key, catchUp = 0) {
     const def = getAttack(key);
     if (!def) return;
 
@@ -330,23 +464,34 @@ export class Player {
 
     this.state = 'attack';
     this.attack = {
-      key, def, elapsed: 0,
+      // `catchUp` is how long ago the button was physically pressed. Starting
+      // with it already elapsed means a press landing just after a sim step
+      // doesn't cost a whole frame of dead time (gate F1).
+      key, def, elapsed: catchUp,
       hitSet: new Set(),
       stepTotal: step.dist,
       stepRemaining: step.dist,
       stepDir: step.dir,
       stepApplied: 0,
-      prevElapsed: 0,
+      prevElapsed: catchUp,
       startPos: this.position.clone(),
       selfLifted: false,
+      released: false,
       whiffed: true,
     };
+
     this.ribbon.clear();
     this.ribbon.setColor(def.trail);
+    // The mark is stamped whole, right now, on the same step the attack
+    // starts -- deliberately before any active frame. See slashfan.js.
+    this.fan.trigger(key, def.trail);
+    World.camRig.pushTo(TUNING.camera.attackPushIn, TUNING.camera.pushInAttackTime);
     Audio.whiff(def.whiffPitch);
 
     World.debug.lastAttackKey = def.label;
     World.debug.stepInThisAttack = step.dist;
+    World.debug.pressToStrokeMs = catchUp * 1000;
+    World.debug.pressToStrokeSteps = catchUp / (1 / TUNING.sim.hz);
   }
 
   /**
@@ -364,7 +509,10 @@ export class Player {
 
     _v.subVectors(target.position, this.position); _v.y = 0;
     const dist = _v.length();
-    if (dist > M.stepInRange || dist < 1e-4) return none;
+    const range = def.magnetStepInMax != null
+      ? Math.max(M.stepInRange, def.magnetStepInMax + M.standoff)
+      : M.stepInRange;
+    if (dist > range || dist < 1e-4) return none;
 
     const ang = Math.atan2(_v.x, _v.z);
     if (Math.abs(angleDelta(ang, this.facing)) > M.maxAngle) return none;
@@ -372,7 +520,9 @@ export class Player {
     const desired = dist - M.standoff;
     if (desired <= 0.01) return none;
 
-    let d = Math.min(desired, M.stepInMax);
+    // stinger carries its own, much longer cap; everything else uses stepInMax
+    const cap = def.magnetStepInMax != null ? def.magnetStepInMax : M.stepInMax;
+    let d = Math.min(desired, cap);
     if (!this.grounded) d *= M.airStepScale;
     return { dist: d, dir: _v.normalize().clone() };
   }
@@ -386,7 +536,9 @@ export class Player {
     // step-in is spread over the anticipation window — it reads as the
     // character committing, not as a teleport
     if (a.stepRemaining > 0) {
-      const windup = Math.max(1e-4, def.anticipation);
+      // zero-anticipation lights would otherwise deliver the whole step-in on
+      // frame 1, which reads as the old teleporting lunge
+      const windup = Math.max(TUNING.magnetism.minStepTime, def.anticipation);
       const applied = Math.min(a.stepRemaining, a.stepTotal * (dt / windup));
       this.position.addScaledVector(a.stepDir, applied);
       a.stepRemaining -= applied;
@@ -399,13 +551,24 @@ export class Player {
       if (hits > 0) {
         a.whiffed = false;
         if (def.selfLift > 0 && !a.selfLifted) {
-          this.vel.y = def.selfLift;
-          this.grounded = false;
+          // hold the button to ride the launch, tap it to stay grounded
+          const follow = !def.holdFollow || Input.isHeld('launcher');
+          if (follow) {
+            this.vel.y = def.selfLift;
+            this.grounded = false;
+            this.airChainIndex = 0;
+            this.airDashes = TUNING.dash.airDashesMax;
+            this.airJumps = TUNING.player.airJumpsMax;
+          }
           a.selfLifted = true;
-          this.airChainIndex = 0;
-          this.airDashes = TUNING.dash.airDashesMax;
         }
       }
+    }
+
+    // release the camera push-in across this attack's own recovery window
+    if (!a.released && a.elapsed >= def.anticipation + def.active) {
+      a.released = true;
+      World.camRig.pushTo(0, def.recovery);
     }
 
     // horizontal damping: no free sliding during a swing
@@ -435,6 +598,7 @@ export class Player {
     this.ribbon.setColor(0x1c1917);
     Audio.whiff(0.55);
     World.camRig.zoomPunch(TUNING.attacks.dive.zoom * 0.35);
+    World.camRig.pushTo(TUNING.camera.attackPushIn, TUNING.camera.pushInAttackTime);
     World.debug.lastAttackKey = 'DIVE';
     World.debug.stepInThisAttack = 0;
   }
@@ -471,6 +635,9 @@ export class Player {
     const hitSet = new Set();
     resolveRadialHits(this.position, def, D.radius, hitSet);
 
+    // the dive's mark belongs at the slam, not at the apex
+    this.fan.trigger('dive', getAttack('dive').trail);
+    World.camRig.pushTo(0, D.recovery);
     World.fx.shockwave(this.position, D.radius, TUNING.fx.shockwaveLife);
     World.fx.groundMark(this.position, D.radius * 0.55);
     World.fx.inkBurst(this.position.clone().setY(0.3), 30, 'sumi', 16);
@@ -504,6 +671,7 @@ export class Player {
       this.vel.y = Math.max(this.vel.y, TUNING.dash.airLift);
     }
     this.ribbon.clear();
+    World.camRig.pushTo(0, TUNING.camera.pushInMinRelease);
     Audio.dash();
     World.fx.inkBurst(this.position.clone().setY(0.4), 8, 'sumi', 5);
     World.camRig.addTrauma(TUNING.dash.shake);
@@ -535,6 +703,7 @@ export class Player {
     this.parryCooldown = TUNING.parry.cooldown;
     this.attack = null;
     this.ribbon.clear();
+    World.camRig.pushTo(0, TUNING.camera.pushInMinRelease);
   }
 
   stepParry(dt) {
@@ -589,6 +758,8 @@ export class Player {
     this.vel.y = Math.max(this.vel.y, 2.0);
     this.grounded = false;
     this.ribbon.clear();
+    this.fan.clear();
+    World.camRig.pushTo(0, TUNING.camera.pushInMinRelease);
     this.chainIndex = 0;
     this.airChainIndex = 0;
     World.combo = 0;
@@ -636,7 +807,8 @@ export class Player {
     }
 
     // facing
-    const locked = World.lockTarget && !World.lockTarget.dead;
+    const locked = World.lockTarget && !World.lockTarget.dead &&
+      TUNING.controls.lockFaceWhileMoving;
     if (locked) {
       _v.subVectors(World.lockTarget.position, this.position); _v.y = 0;
       if (_v.lengthSq() > 1e-4) {
@@ -655,6 +827,18 @@ export class Player {
     const P = TUNING.player;
     const inDiveFall = this.state === 'dive' && this.dive && this.dive.phase !== 'land';
     const inHang = this.state === 'dive' && this.dive && this.dive.phase === 'hang';
+
+    // coyote time refreshes while grounded, then counts down after stepping off
+    if (this.grounded) this.coyoteTimer = P.coyoteTime;
+
+    // releasing jump early clips the rise
+    if (this.jumpCutArmed) {
+      if (this.vel.y <= 0) this.jumpCutArmed = false;
+      else if (!Input.isHeld('jump')) {
+        this.vel.y *= P.jumpCutMul;
+        this.jumpCutArmed = false;
+      }
+    }
 
     if (!this.grounded && !inHang && !inDiveFall) {
       let g = P.gravity;
@@ -693,6 +877,8 @@ export class Player {
   land(fromDive) {
     this.grounded = true;
     this.airDashes = TUNING.dash.airDashesMax;
+    this.airJumps = TUNING.player.airJumpsMax;
+    this.jumpCutArmed = false;
     this.airChainIndex = 0;
     if (fromDive) {
       this.diveImpact();
@@ -817,6 +1003,21 @@ export class Player {
   }
 
   // ------------------------------------------------------------- lock-on
+
+  /** Grab the best target without cycling. Used by hold-to-lock. */
+  acquireLock() {
+    let best = null, bestScore = Infinity;
+    for (const e of World.enemies) {
+      if (e.dead) continue;
+      const d = this.position.distanceTo(e.position);
+      if (d > TUNING.lockOn.maxRange) continue;
+      _v.subVectors(e.position, this.position); _v.y = 0;
+      const ang = Math.abs(angleDelta(Math.atan2(_v.x, _v.z), this.facing));
+      const score = d + ang * 4.0;
+      if (score < bestScore) { bestScore = score; best = e; }
+    }
+    World.lockTarget = best;
+  }
 
   toggleLockOn() {
     if (World.lockTarget && !World.lockTarget.dead) {

@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { TUNING, TUNING_DEFAULTS, setTuning, getTuning } from './tuning.js';
+import { Input, ACTIONS, ACTION_LABELS } from './input.js';
 import { World } from './world.js';
 import { PALETTE } from './gfx/materials.js';
 import { isActiveFrames } from './combat/attacks.js';
@@ -140,6 +141,24 @@ export class Debug {
     mkRow('last attack moved', () => `${World.debug.lastAttackDisplacement.toFixed(4)} m`);
     mkRow('last attack', () => World.debug.lastAttackKey);
 
+    mkSection('F1 — press to visible stroke');
+    mkRow('last stroke latency', () => `${(World.debug.pressToStrokeMs || 0).toFixed(1)} ms`, 'good');
+    mkRow('in sim steps', () => `${(World.debug.pressToStrokeSteps || 0).toFixed(2)}`, 'good');
+    mkRow('fan opacity now', () => World.player.fan.visibleOpacity.toFixed(2));
+    mkRow('input buffer', () => `${(TUNING.combo.inputBuffer * 1000).toFixed(0)} ms`);
+
+    mkSection('controls state');
+    mkRow('scheme', () => TUNING.controls.scheme);
+    mkRow('basis latched', () => (World.player.basisLatched ? 'yes' : 'no'));
+    mkRow('screen yaw', () => `${(World.camRig.screenYaw * 57.2958).toFixed(0)}°`);
+    mkRow('stick', () => `${Input.move.x.toFixed(2)}, ${Input.move.y.toFixed(2)}`);
+    mkRow('gamepad', () => (Input.padConnected ? 'connected' : '—'));
+    mkRow('lock mode', () => (TUNING.controls.lockIsHold ? 'hold' : 'toggle'));
+    mkRow('dir intent', () => World.player.lockDirIntent() || '—');
+    mkRow('air jumps', () => World.player.airJumps);
+    mkRow('coyote', () => World.player.coyoteTimer.toFixed(3));
+    mkRow('cam push-in', () => World.camRig.pushIn.toFixed(2));
+
     mkSection('last hit');
     mkRow('reaction', () => World.debug.lastReaction);
     mkRow('hit-stop applied', () => `${(World.debug.lastHitStop * 1000).toFixed(0)} ms`);
@@ -180,6 +199,39 @@ export class Debug {
     mkBtn('reset tuning', () => { this.resetTuning(); });
     this.panel.appendChild(btnBar);
 
+    // --- key / pad remapping ---
+    mkSection('bindings (click to rebind)');
+    this.bindRows = [];
+    for (const action of ACTIONS) {
+      const row = document.createElement('div');
+      row.className = 'row bindrow';
+      const a = document.createElement('span');
+      a.textContent = ACTION_LABELS[action] || action;
+      const b = document.createElement('span');
+      b.textContent = Input.describeBinding(action);
+      row.append(a, b);
+      row.onclick = () => {
+        if (this.remapRow) this.remapRow.b.textContent = Input.describeBinding(this.remapRow.action);
+        b.textContent = 'press a key / button…';
+        this.remapRow = { action, b };
+        Input.beginRemap(action, (desc) => {
+          b.textContent = desc;
+          this.remapRow = null;
+        });
+      };
+      this.panel.appendChild(row);
+      this.bindRows.push({ action, b });
+    }
+    const bindBar = document.createElement('div');
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'reset bindings';
+    resetBtn.onclick = () => {
+      Input.resetBindings();
+      for (const r of this.bindRows) r.b.textContent = Input.describeBinding(r.action);
+    };
+    bindBar.appendChild(resetBtn);
+    this.panel.appendChild(bindBar);
+
     // --- live tuning ---
     mkSection('tuning (live)');
     for (const key of Object.keys(TUNING)) {
@@ -213,6 +265,19 @@ export class Debug {
         });
         row.append(label, input);
         parent.appendChild(row);
+      } else if (typeof v === 'string') {
+        const row = document.createElement('div');
+        row.className = 'tune';
+        const label = document.createElement('label');
+        label.textContent = k;
+        label.title = path;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = v;
+        input.dataset.path = path;
+        input.addEventListener('change', () => setTuning(path, input.value.trim()));
+        row.append(label, input);
+        parent.appendChild(row);
       } else if (v && typeof v === 'object') {
         const det = document.createElement('details');
         const sum = document.createElement('summary');
@@ -229,7 +294,7 @@ export class Debug {
       for (const k of Object.keys(src)) {
         const v = src[k];
         const path = `${prefix}.${k}`;
-        if (typeof v === 'number') setTuning(path, v);
+        if (typeof v === 'number' || typeof v === 'string') setTuning(path, v);
         else if (v && typeof v === 'object') walk(v, path);
       }
     };

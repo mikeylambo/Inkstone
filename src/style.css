@@ -179,3 +179,7 @@ canvas { display: block; width: 100vw; height: 100vh; }
   border-radius: 3px; cursor: pointer;
 }
 #debug-panel button:hover { background: #b91c1c; }
+
+#debug-panel .bindrow { cursor: pointer; padding: 2px 0; }
+#debug-panel .bindrow:hover { background: #44403c; }
+#debug-panel .bindrow span:last-child { color: #93c5fd; }

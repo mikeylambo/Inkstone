@@ -78,6 +78,34 @@ function createBrushTexture() {
   return t;
 }
 
+/**
+ * Torn-bristle brush for the SlashFan — the prototype recipe, verbatim:
+ * 40 random opaque rects on a transparent field, no solid body. The gaps are
+ * the point. `brushTexture` above stays polished and belongs to Ribbon; this
+ * one is deliberately cruder and reads as a single struck mark.
+ */
+function createDryBrushTexture() {
+  const W = 256, H = 64;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  // White, not the prototype's near-black: MeshBasicMaterial multiplies map by
+  // material.color, so an almost-black texture crushes every trail colour to
+  // the same dark smear and the A3 palette can't read. The SHAPE below is the
+  // prototype recipe unchanged; only the ink colour moves to material.color.
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 40; i++) {
+    const y = Math.random() * H;
+    const h = Math.random() * 8 + 2;
+    const len = Math.random() * 200 + 50;
+    ctx.fillRect(Math.random() * 30, y, len, h);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /** Irregular ink blot with a soft bleed edge. Used for pools and splats. */
 function createSplatTexture(seed = 1) {
   const S = 128;
@@ -136,6 +164,7 @@ function createPaperTexture() {
 
 export const sumiRamp = createSumiRamp();
 export const brushTexture = createBrushTexture();
+export const dryBrushTexture = createDryBrushTexture();
 export const paperTexture = createPaperTexture();
 export const splatTextures = [createSplatTexture(1), createSplatTexture(3.7), createSplatTexture(8.2)];
 
