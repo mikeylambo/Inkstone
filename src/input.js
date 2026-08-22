@@ -9,7 +9,7 @@
  */
 import { TUNING } from './tuning.js';
 
-export const ACTIONS = ['light', 'launcher', 'heavy', 'dash', 'parry', 'lock', 'jump'];
+export const ACTIONS = ['light', 'launcher', 'heavy', 'dash', 'parry', 'lock', 'jump', 'pause'];
 
 export const ACTION_LABELS = {
   light: 'Light',
@@ -19,6 +19,7 @@ export const ACTION_LABELS = {
   dash: 'Dash',
   parry: 'Parry',
   lock: 'Lock-on',
+  pause: 'Pause / settings',
 };
 
 /** Xbox / standard gamepad button indices, for the remap UI. */
@@ -39,6 +40,7 @@ export const DEFAULT_BINDINGS = {
   dash: { keys: ['ShiftLeft', 'ShiftRight'], mouse: [], pad: [7] },  // RT
   parry: { keys: ['KeyF'], mouse: [], pad: [4] },         // LB
   lock: { keys: ['KeyQ', 'Tab'], mouse: [], pad: [5] },   // RB
+  pause: { keys: ['Escape'], mouse: [], pad: [9] },       // Start
 };
 
 const STORAGE_KEY = 'sumi.bindings.v1';
@@ -189,8 +191,6 @@ class InputSystem {
         this.applyRemap('keys', e.code);
         return;
       }
-      // Escape pauses (only once a pending remap has had its chance above)
-      if (e.code === 'Escape') { this.pauseToggleRequested = true; return; }
       this.keys[e.code] = true;
       const a = this.keyMap[e.code];
       if (a) { this.press(a, e.timeStamp, `k:${e.code}`); this.usingPad = false; }
@@ -242,6 +242,7 @@ class InputSystem {
    *                            harness, which must stay deterministic.
    */
   press(action, atMs = null, source = null) {
+    if (action === 'pause') { this.pauseToggleRequested = true; return; }
     this.buffer[action] = TUNING.combo.inputBuffer;
     this.pressAt[action] = atMs;
     if (source) this.heldBy[action].add(source);
@@ -352,6 +353,29 @@ class InputSystem {
     const age = (performance.now() - at) / 1000;
     if (!(age >= 0)) return 0;
     return Math.min(age, maxSeconds);
+  }
+
+  /**
+   * Raw pad state for menu navigation. Level-triggered, not edge-triggered —
+   * the settings editor does its own repeat timing.
+   */
+  readNavPad() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const pad = this.padIndex >= 0 ? pads[this.padIndex] : (pads && pads[0]);
+    if (!pad || !pad.connected) return null;
+    const dz = TUNING.controls.deadzone;
+    const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+    const b = (i) => !!(pad.buttons[i] && (pad.buttons[i].pressed || pad.buttons[i].value > 0.5));
+    return {
+      up: b(12) || ay < -dz,
+      down: b(13) || ay > dz,
+      left: b(14) || ax < -dz,
+      right: b(15) || ax > dz,
+      accept: b(0),      // A
+      cancel: b(1),      // B
+      coarse: b(4),      // LB — bigger slider steps
+      pageDown: b(5),    // RB
+    };
   }
 
   peek(action) { return this.buffer[action] > 0; }

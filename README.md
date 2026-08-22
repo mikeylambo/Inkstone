@@ -32,7 +32,7 @@ run seed — same seed + same inputs produce the same run.
 | Parry | `F` | LB |
 | Lock-on (toggle / cycle) | `Q` or `Tab` | RB |
 | Camera nudge (free cam) | — | Right stick |
-| Pause &amp; settings | `Esc` | — |
+| Pause &amp; settings | `Esc` | Start |
 | Debug overlay | `` ` `` (backquote) | — |
 
 Lock-on directional moves (while locked):
@@ -50,10 +50,22 @@ moving camera can't curve a held direction. Jump cancels an attack past its
 Lock-on is a toggle by default and cycles targets while more than one is alive;
 set `controls.lockIsHold` to 1 for hold-to-lock.
 
-**Esc** opens the pause menu, which freezes the sim and hosts the full settings
-editor: every tuning value as a slider or a number field (your choice,
-remembered), a filter box, and key/pad rebinding. The same editor is embedded in
-the debug overlay. Bindings persist in `localStorage`.
+**Esc** (or **Start** on a pad) opens the pause menu. It freezes the sim and
+hosts the full settings editor: every tuning value as a slider or a number field
+(your choice, remembered), a filter box, key/pad rebinding, and a description of
+whatever parameter is selected. The same editor is embedded in the debug
+overlay. Bindings persist in `localStorage`.
+
+The menu is fully controller-driven:
+
+| Pad | Menu action |
+| --- | --- |
+| D-pad / left stick | Move the selection (hold to repeat) |
+| Left / Right | Nudge the selected value |
+| LB + Left/Right | Nudge it in bigger steps |
+| A | Open a group, or start rebinding |
+| B | Close |
+| Start | Close |
 
 ## Layout
 
@@ -68,7 +80,9 @@ src/
   camera.js          Lock-on framing, trauma shake, FOV punch
   hud.js             Vitals, target, stroke counter
   debug.js           `~` overlay: state, hitboxes, embedded settings editor
-  settings.js        The settings editor — sliders/fields + rebinding
+  settings.js        The settings editor — sliders/fields, rebinding, pad nav
+  tuningdocs.js      Plain-language description for every parameter
+  exportaudio.js     Dev: bounce the procedural audio to WAV
   pause.js           Esc pause menu, hosts the same editor
   anim/poses.js      Key-poses + phase-space attack tracks
   combat/attacks.js  Attack identity (track, sound, trail, stroke type)
@@ -101,6 +115,11 @@ inputs produce a byte-identical run — verified in REPORT.md.
 `window.SUMI` exposes `World`, `TUNING`, `simStep`, `spawnOni`, `killAll`,
 `resetArena` and a headless `run(steps, {move, press})` driver for scripted
 verification without the render loop.
+
+`tools/filesink.mjs` is the sink used by `SUMI.exportAudio()`, which renders
+every procedural sound to a 32-bit float WAV under `export/`. The game ships no
+audio assets — everything is synthesised by `src/audio.js` at runtime — so this
+is how you get the sounds into a DAW.
 
 `tools/shotserver.mjs` is an optional local sink (`node tools/shotserver.mjs`)
 that accepts a data-URL POST on port 5199 and writes it to `shots/`. It exists

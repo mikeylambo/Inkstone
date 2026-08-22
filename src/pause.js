@@ -31,6 +31,13 @@ export class PauseMenu {
     this.el.classList.remove('hidden');
     if (!this.editor) this.editor = new SettingsEditor(this.body);
     else this.editor.refresh();
+    this.editor.focusFirst();
+  }
+
+  /** Called every rendered frame while paused, so a pad can drive the menu. */
+  update(dt) {
+    if (!World.paused || !this.editor) return;
+    if (this.editor.handleGamepad(dt) === 'close') this.close();
   }
 
   close() {

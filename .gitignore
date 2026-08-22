@@ -6,3 +6,5 @@ shots/
 .env.*
 *.local
 .DS_Store
+export/
+*.zip

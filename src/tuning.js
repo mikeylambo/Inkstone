@@ -375,6 +375,13 @@ export const TUNING = {
     ringJitter: 3.0,
   },
 
+  /** Settings-menu interaction. UI timings, not game feel. */
+  ui: {
+    navRepeatDelay: 0.38,    // hold a direction this long before it repeats
+    navRepeatRate: 0.07,     // then step this often
+    sliderCoarseMul: 10,     // hold LB for bigger slider steps
+  },
+
   controls: {
     invertX: 0,
     invertY: 0,

@@ -264,3 +264,26 @@ canvas { display: block; width: 100vw; height: 100vh; }
 #pause-body button:hover { background: #b91c1c; }
 #pause-body .bindrow { cursor: pointer; }
 #pause-body .bindrow:hover { background: #44403c; }
+
+/* --- settings: description strip + focus ring --- */
+.set-info {
+  position: sticky; bottom: 0; z-index: 3;
+  margin-top: 10px; padding: 8px 10px;
+  background: #1c1917; border-top: 1px solid var(--vermilion);
+  display: flex; flex-direction: column; gap: 3px;
+  min-height: 46px;
+}
+.set-info-path {
+  color: #fcd34d; font-size: 10px; letter-spacing: 0.06em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.set-info-text { color: #d6d3d1; line-height: 1.45; }
+
+#debug-panel [tabindex]:focus,
+#pause-body [tabindex]:focus {
+  outline: 2px solid #fca5a5;
+  outline-offset: 1px;
+}
+#debug-panel .bindrow:focus,
+#pause-body .bindrow:focus { background: #44403c; }
+#pause-body summary:focus { color: #fef2f2; }

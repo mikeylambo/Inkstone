@@ -297,3 +297,55 @@ One bug this introduced and fixed: typing into the filter box was driving the
 game — `J`/`K`/`L` buffered attacks and a literal backtick toggled the debug
 overlay. Keyboard events originating from an editable field are now ignored by
 the input system, and buffers are cleared on pause and resume.
+
+
+---
+
+# Follow-up 2 — controller pause, audio export, menu accessibility
+
+## Controller pause button
+
+It never worked because Escape was hardcoded in the keydown handler and never
+went through the binding table, so there was nothing for a pad button to map
+onto. `pause` is now a first-class bindable action (**Escape · Start**), routed
+like every other input. It raises the pause request immediately rather than
+going through the attack buffer, since it is not a gameplay action.
+
+## Audio export
+
+The game has no audio files — every sound is synthesised at runtime by
+`src/audio.js`. `AudioSystem.start()` was split so the synth graph can be
+rebuilt inside `Tone.Offline`, and `src/exportaudio.js` renders each of the 24
+sounds to a WAV through `tools/filesink.mjs`.
+
+Exported as **32-bit float**, not 16-bit: the mix spans about 38 dB between the
+whiffs (~-40 dBFS) and the impacts (~-4 dBFS), so 16-bit would leave roughly 7
+usable bits at the quiet end once boosted in a DAW. Nothing is normalised — the
+relative balance in the folder is the balance in the game. A README in the zip
+documents the synth recipe behind each sound.
+
+Regenerate any time with `SUMI.exportAudio()` and `node tools/filesink.mjs`.
+
+## Settings menu on a controller, with descriptions
+
+- **`src/tuningdocs.js`** describes **every** parameter — verified
+  programmatically at **0 of 444 without a description**. Most leaves are the
+  same ~39 field names repeated across attacks, reactions and fan specs, so
+  those are described once by name and the remaining 156 have exact entries;
+  the fan rotation triples are described structurally by axis.
+- A sticky description strip at the bottom of the panel shows the path and
+  description of whatever is selected, by mouse or by pad. Every row also
+  carries a tooltip.
+- **Full pad navigation:** D-pad/stick to move with hold-to-repeat, Left/Right
+  to nudge a value, LB for coarse steps, A to open a group or start a rebind,
+  B or Start to close.
+
+One thing worth recording: the description strip originally relied on the DOM
+`focus` event. `element.focus()` does **not** fire a focus event when the window
+itself is unfocused, so navigation could silently leave the strip stale.
+Navigation now carries the description on the element and updates the strip
+directly; the focus listener remains only for mouse and Tab users.
+
+Regression after all of the above: G2.4 still 0.000000 m unlocked for all six
+attacks, F1 still 0 sim steps, the run cycle still 0.215 rad/frame at 500 s of
+session time, and a 90-second soak with pause/unpause churn threw nothing.

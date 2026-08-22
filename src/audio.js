@@ -6,7 +6,7 @@
 import * as Tone from 'tone';
 import { TUNING } from './tuning.js';
 
-class AudioSystem {
+export class AudioSystem {
   constructor() {
     this.ready = false;
     this.lastAt = Object.create(null);
@@ -16,7 +16,15 @@ class AudioSystem {
   async start() {
     if (this.ready) return;
     await Tone.start();
+    this.buildGraph();
+  }
 
+  /**
+   * Build the synth graph on whatever Tone context is current. Split out from
+   * start() so the offline renderer (tools/exportaudio) can stand up an
+   * identical graph inside Tone.Offline and bounce each sound to a file.
+   */
+  buildGraph() {
     const limiter = new Tone.Limiter(-1).toDestination();
     this.out = new Tone.Gain(1).connect(limiter);
     Tone.getDestination().volume.value = TUNING.audio.masterVolume;
@@ -84,6 +92,7 @@ class AudioSystem {
     this.drone.volume.value = -24;
 
     this.ready = true;
+    return this;
   }
 
   /** Avoid Tone throwing on identical scheduling times for one voice. */

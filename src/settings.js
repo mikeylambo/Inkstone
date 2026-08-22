@@ -9,6 +9,7 @@
  */
 import { TUNING, TUNING_DEFAULTS, TUNING_RANGES, setTuning, getTuning } from './tuning.js';
 import { Input, ACTIONS, ACTION_LABELS } from './input.js';
+import { describeTuning, describeSection } from './tuningdocs.js';
 
 const MODE_KEY = 'sumi.editorMode.v1';
 export const EDITOR_MODES = ['sliders', 'fields'];
@@ -46,6 +47,8 @@ export class SettingsEditor {
     this.filterText = '';
     this.rows = [];
     this.bindRows = [];
+    this.navItems = [];
+    this.navHold = Object.create(null);
     this.remapRow = null;
     this.build();
   }
@@ -56,6 +59,7 @@ export class SettingsEditor {
     this.root.innerHTML = '';
     this.rows = [];
     this.bindRows = [];
+    this.navItems = [];
 
     // --- toolbar: edit mode, filter, reset ---
     const bar = document.createElement('div');
@@ -68,6 +72,10 @@ export class SettingsEditor {
       b.textContent = m;
       b.className = m === this.mode ? 'active' : '';
       b.onclick = () => this.setMode(m);
+      this.nav(b, `edit mode: ${m}`,
+        m === 'sliders'
+          ? 'Show each parameter as a slider plus a value box. Easier to feel out a range.'
+          : 'Show each parameter as a number box only. Faster for typing exact values.');
       modeWrap.appendChild(b);
     }
     bar.appendChild(modeWrap);
@@ -78,11 +86,13 @@ export class SettingsEditor {
     filter.className = 'set-filter';
     filter.value = this.filterText;
     filter.addEventListener('input', () => this.applyFilter(filter.value));
+    this.nav(filter, 'filter', 'Type part of a parameter path to narrow the list, e.g. "magnetism" or "hitStop".');
     bar.appendChild(filter);
 
     const reset = document.createElement('button');
     reset.textContent = 'reset all';
     reset.onclick = () => this.resetTuning();
+    this.nav(reset, 'reset all', 'Restore every parameter to its shipped value. Does not touch key bindings.');
     bar.appendChild(reset);
 
     this.root.appendChild(bar);
@@ -99,6 +109,8 @@ export class SettingsEditor {
         b.textContent = Input.describeBinding(action);
         row.append(a, b);
         row.onclick = () => this.beginRemap(action, b);
+        this.nav(row, `bind: ${action}`,
+          `Rebind ${ACTION_LABELS[action] || action}. Activate, then press the key, mouse button or pad button you want.`);
         this.root.appendChild(row);
         this.bindRows.push({ action, b });
       }
@@ -108,6 +120,7 @@ export class SettingsEditor {
         Input.resetBindings();
         for (const r of this.bindRows) r.b.textContent = Input.describeBinding(r.action);
       };
+      this.nav(rb, 'reset bindings', 'Restore the default control layout.');
       const wrap = document.createElement('div');
       wrap.appendChild(rb);
       this.root.appendChild(wrap);
@@ -119,12 +132,52 @@ export class SettingsEditor {
       const det = document.createElement('details');
       const sum = document.createElement('summary');
       sum.textContent = key;
+      this.nav(sum, key, describeSection(key));
       det.appendChild(sum);
       this.buildTree(det, TUNING[key], key);
       this.root.appendChild(det);
     }
 
+    // description strip — updates as focus moves, by mouse or by pad
+    this.info = document.createElement('div');
+    this.info.className = 'set-info';
+    this.info.innerHTML = '<span class="set-info-path"></span><span class="set-info-text">'
+      + 'Select a parameter to see what it does. D-pad / stick to move, A to activate, '
+      + 'left+right to adjust, B or Start to close.</span>';
+    this.infoPath = this.info.querySelector('.set-info-path');
+    this.infoText = this.info.querySelector('.set-info-text');
+    this.root.appendChild(this.info);
+
     if (this.filterText) this.applyFilter(this.filterText);
+  }
+
+  /** Register an element as focusable for pad/keyboard navigation. */
+  nav(el, path, text) {
+    el.tabIndex = 0;
+    if (text) el.title = text;
+    // carried on the element so navigation can update the strip directly
+    // rather than relying on a focus event, which is not delivered when the
+    // window itself is unfocused
+    el.__navInfo = { path, text };
+    const show = () => this.showInfo(path, text);
+    el.addEventListener('focus', show);
+    el.addEventListener('mouseenter', show);
+    this.navItems.push(el);
+    return el;
+  }
+
+  /** Focus an element and show its description, without depending on events. */
+  focusItem(el) {
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const info = el.__navInfo;
+    if (info) this.showInfo(info.path, info.text);
+  }
+
+  showInfo(path, text) {
+    if (!this.infoPath) return;
+    this.infoPath.textContent = path || '';
+    this.infoText.textContent = text || '';
   }
 
   section(title) {
@@ -145,6 +198,7 @@ export class SettingsEditor {
         const det = document.createElement('details');
         const sum = document.createElement('summary');
         sum.textContent = k;
+        this.nav(sum, path, describeTuning(path));
         det.appendChild(sum);
         this.buildTree(det, v, path);
         parent.appendChild(det);
@@ -196,9 +250,18 @@ export class SettingsEditor {
     });
     row.appendChild(num);
 
+    const doc = describeTuning(path);
+    label.title = `${path}
+
+${doc}`;
+    const focusTarget = range || num;
+    this.nav(focusTarget, path, doc);
+    row.addEventListener('mouseenter', () => this.showInfo(path, doc));
+
     parent.appendChild(row);
     this.rows.push({
-      path, row,
+      path, row, range, num,
+      step: r.step,
       set: (v) => {
         num.value = String(v);
         if (range) range.value = String(v);
@@ -217,6 +280,12 @@ export class SettingsEditor {
     input.type = 'text';
     input.value = value;
     input.addEventListener('change', () => setTuning(path, input.value.trim()));
+    const doc = describeTuning(path);
+    label.title = `${path}
+
+${doc}`;
+    this.nav(input, path, doc);
+    row.addEventListener('mouseenter', () => this.showInfo(path, doc));
     row.append(label, input);
     parent.appendChild(row);
     this.rows.push({ path, row, set: (v) => { input.value = String(v); } });
@@ -271,6 +340,89 @@ export class SettingsEditor {
     };
     for (const key of Object.keys(TUNING_DEFAULTS)) walk(TUNING_DEFAULTS[key], key);
     this.refresh();
+  }
+
+  // ------------------------------------------------------------ pad navigation
+
+  /** Currently focusable items, skipping anything collapsed or filtered out. */
+  visibleNavItems() {
+    return this.navItems.filter((el) => el.offsetParent !== null);
+  }
+
+  focusIndex(items) {
+    const i = items.indexOf(document.activeElement);
+    return i;
+  }
+
+  navMove(delta) {
+    const items = this.visibleNavItems();
+    if (!items.length) return;
+    let i = this.focusIndex(items);
+    i = i < 0 ? (delta > 0 ? 0 : items.length - 1) : i + delta;
+    i = Math.max(0, Math.min(items.length - 1, i));
+    const el = items[i];
+    this.focusItem(el);
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  /** Left/right on a focused parameter nudges its value. */
+  navAdjust(dir, coarse) {
+    const el = document.activeElement;
+    const row = this.rows.find((r) => r.range === el || r.num === el);
+    if (!row) return false;
+    const target = row.range || row.num;
+    const step = (row.step || 0.01) * (coarse ? TUNING.ui.sliderCoarseMul : 1);
+    const next = (parseFloat(target.value) || 0) + step * dir;
+    target.value = String(+next.toFixed(6));
+    target.dispatchEvent(new Event(row.range ? 'input' : 'change'));
+    if (row.range) { row.num.value = target.value; }
+    else if (row.range === undefined && row.num) { setTuning(row.path, parseFloat(target.value)); }
+    return true;
+  }
+
+  navActivate() {
+    const el = document.activeElement;
+    if (!el) return;
+    if (el.tagName === 'SUMMARY') { el.parentElement.open = !el.parentElement.open; return; }
+    if (el.classList && el.classList.contains('bindrow')) { el.click(); return; }
+    if (el.tagName === 'BUTTON') { el.click(); return; }
+  }
+
+  /**
+   * Drive the menu from a gamepad. Called once per rendered frame while the
+   * pause menu is open. Level-triggered with our own repeat timing, so a held
+   * direction scrolls rather than firing once.
+   */
+  handleGamepad(dt) {
+    const pad = Input.readNavPad();
+    if (!pad) return null;
+    const U = TUNING.ui;
+
+    const edge = (name, down) => {
+      const prev = this.navHold[name] || 0;
+      if (!down) { this.navHold[name] = 0; return false; }
+      if (prev === 0) { this.navHold[name] = U.navRepeatDelay; return true; }
+      const next = prev - dt;
+      if (next <= 0) { this.navHold[name] = U.navRepeatRate; return true; }
+      this.navHold[name] = next;
+      return false;
+    };
+
+    if (edge('up', pad.up)) this.navMove(-1);
+    if (edge('down', pad.down)) this.navMove(1);
+    if (edge('left', pad.left)) this.navAdjust(-1, pad.coarse);
+    if (edge('right', pad.right)) this.navAdjust(1, pad.coarse);
+    // accept/cancel fire once per press, never on repeat
+    if (edge('accept', pad.accept) && this.navHold.accept === U.navRepeatDelay) this.navActivate();
+    if (pad.cancel && !this.prevCancel) { this.prevCancel = true; return 'close'; }
+    if (!pad.cancel) this.prevCancel = false;
+    return null;
+  }
+
+  /** Put focus somewhere sensible when the menu opens. */
+  focusFirst() {
+    const items = this.visibleNavItems();
+    if (items.length) this.focusItem(items[0]);
   }
 
   /** Re-read every control from TUNING (values may have changed elsewhere). */

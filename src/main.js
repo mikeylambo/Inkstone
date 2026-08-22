@@ -207,6 +207,8 @@ function frame(now) {
   for (const e of World.enemies) e.applyInterpolation(alpha);
   World.camRig.apply(alpha, now / 1000);
 
+  if (World.paused) pauseMenu.update(realDt);
+
   hud.update(camera);
   World.debug.simStepsLastFrame = steps;
   debug.update(STEP, realDt);
@@ -228,6 +230,12 @@ requestAnimationFrame(frame);
 window.SUMI = {
   World, TUNING, Input, Audio, scene, camera, renderer, pauseMenu,
   spawnOni, killAll, resetArena, simStep, STEP,
+
+  /** Dev: bounce every procedural sound to WAV via the local file sink. */
+  async exportAudio(sink) {
+    const m = await import('./exportaudio.js');
+    return m.exportAll(sink);
+  },
 
   /** Drive the sim without the render loop. opts: {move:[x,y], press:[...]} */
   run(steps, opts = {}) {
