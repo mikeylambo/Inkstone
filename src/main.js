@@ -19,6 +19,7 @@ import { Player } from './entities/player.js';
 import { Oni } from './entities/oni.js';
 import { Hud } from './hud.js';
 import { Debug } from './debug.js';
+import { PauseMenu } from './pause.js';
 
 // --------------------------------------------------------------- renderer
 
@@ -91,6 +92,8 @@ const debug = new Debug(scene, {
   reset: resetArena,
   renderInfo: () => renderer.info.render,
 });
+
+const pauseMenu = new PauseMenu();
 
 Input.init();
 
@@ -173,10 +176,16 @@ function frame(now) {
     Input.debugToggleRequested = false;
     debug.toggle();
   }
+  if (Input.pauseToggleRequested) {
+    Input.pauseToggleRequested = false;
+    pauseMenu.toggle();
+  }
 
   Input.poll();
 
-  accumulator += realDt;
+  // paused: keep rendering, run no sim, and don't bank time to burn on resume
+  if (World.paused) accumulator = 0;
+  else accumulator += realDt;
   let steps = 0;
   const maxSteps = TUNING.sim.maxStepsPerFrame;
 
@@ -217,7 +226,7 @@ requestAnimationFrame(frame);
 // expose for console poking during tuning sessions and for the headless
 // harness used to produce gate evidence in REPORT.md
 window.SUMI = {
-  World, TUNING, Input, Audio, scene, camera, renderer,
+  World, TUNING, Input, Audio, scene, camera, renderer, pauseMenu,
   spawnOni, killAll, resetArena, simStep, STEP,
 
   /** Drive the sim without the render loop. opts: {move:[x,y], press:[...]} */

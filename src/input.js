@@ -43,6 +43,13 @@ export const DEFAULT_BINDINGS = {
 
 const STORAGE_KEY = 'sumi.bindings.v1';
 
+/** Is this event target a field the user is typing into? */
+function isEditable(el) {
+  if (!el || !el.tagName) return false;
+  const t = el.tagName;
+  return t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || el.isContentEditable;
+}
+
 function cloneBindings(b) {
   const out = {};
   for (const a of ACTIONS) {
@@ -69,6 +76,7 @@ class InputSystem {
     this.padConnected = false;
     this.prevPadButtons = [];
     this.debugToggleRequested = false;
+    this.pauseToggleRequested = false;
     this.usingPad = false;
     this.remapPending = null;            // {action, done(desc)}
 
@@ -165,6 +173,13 @@ class InputSystem {
 
   init() {
     window.addEventListener('keydown', (e) => {
+      // Typing in the settings filter / a number field must not drive the game:
+      // no buffered attacks, no debug toggle from a literal backtick, and Tab
+      // still moves focus between fields.
+      if (isEditable(e.target)) {
+        if (e.code === 'Escape') e.target.blur();
+        return;
+      }
       if (e.code === 'Tab') e.preventDefault();
       if (e.code === 'Backquote') { this.debugToggleRequested = true; return; }
       if (e.repeat) return;
@@ -174,19 +189,22 @@ class InputSystem {
         this.applyRemap('keys', e.code);
         return;
       }
+      // Escape pauses (only once a pending remap has had its chance above)
+      if (e.code === 'Escape') { this.pauseToggleRequested = true; return; }
       this.keys[e.code] = true;
       const a = this.keyMap[e.code];
       if (a) { this.press(a, e.timeStamp, `k:${e.code}`); this.usingPad = false; }
     });
 
     window.addEventListener('keyup', (e) => {
+      if (isEditable(e.target)) return;
       this.keys[e.code] = false;
       const a = this.keyMap[e.code];
       if (a) this.release(a, `k:${e.code}`);
     });
 
     window.addEventListener('mousedown', (e) => {
-      if (e.target.closest && e.target.closest('#debug-panel, #start-btn')) return;
+      if (e.target.closest && e.target.closest('#debug-panel, #pause-menu, #start-btn')) return;
       if (this.remapPending) { this.applyRemap('mouse', e.button); return; }
       const a = this.mouseMap[e.button];
       if (a) { this.press(a, e.timeStamp, `m:${e.button}`); this.usingPad = false; }

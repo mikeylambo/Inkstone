@@ -51,13 +51,25 @@
       <div><b class="c-green">Space</b> Jump</div>
       <div><b class="c-green">Shift</b> Dash</div>
       <div><b class="c-blue">F</b> Parry</div>
-      <div><b class="c-purple">Q / Tab</b> Hold to Lock</div>
-      <div><b>~</b> Debug &amp; rebind</div>
+      <div><b class="c-purple">Q / Tab</b> Lock-On (toggle)</div>
+      <div><b>Esc</b> Pause &amp; settings</div>
+      <div><b>~</b> Debug</div>
     </div>
 
     <button id="start-btn">始 &nbsp;BEGIN · ENABLE AUDIO</button>
 
     <div id="hit-banner"></div>
+  </div>
+
+  <div id="pause-menu" class="hidden">
+    <div id="pause-panel">
+      <div id="pause-head">
+        <span class="kanji">休</span>
+        <span id="pause-title">PAUSED — SETTINGS</span>
+        <button id="pause-resume">RESUME</button>
+      </div>
+      <div id="pause-body"></div>
+    </div>
   </div>
 
   <div id="debug-panel" class="hidden"></div>

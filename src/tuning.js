@@ -32,6 +32,7 @@ export const TUNING = {
     hurtKnockback: 5.5,
     hurtStun: 0.35,
     landingRecovery: 0.06,
+    runBlendTime: 0.11,    // ease the run cycle in/out instead of snapping
     jumpVel: 13.5,
     jumpCutMul: 0.45,      // releasing early clips upward velocity
     coyoteTime: 0.08,
@@ -387,7 +388,7 @@ export const TUNING = {
     latchBreakAngle: 1.05,   // rad; re-latch if the stick swings more than this
     deadzone: 0.22,
     outerDeadzone: 0.95,
-    lockIsHold: 1,           // 1 = hold to lock on, 0 = press to toggle/cycle
+    lockIsHold: 0,           // 1 = hold to lock on, 0 = press to toggle/cycle
     lockFaceWhileMoving: 1,  // strafe-face the target instead of the stick
     /** Lock-on directional attacks, individually gated. */
     stingerEnabled: 1,

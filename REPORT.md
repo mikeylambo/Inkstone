@@ -235,3 +235,65 @@ of net displacement while wandering 16.6 m off the line.
    nobody has played it.
 5. **Jump has no dedicated sound** — it reuses the dash whoosh, since audio was
    out of scope for this patch.
+
+
+---
+
+# Follow-up patch — playtest fixes
+
+Three items from the first play session.
+
+## 1. Choppy footwork on starting to move — fixed
+
+Reported as "short choppy footwork that settles after a few seconds". It was a
+real bug and worse than the description: the run cycle computed
+`sin(World.time * cadence)` — **absolute** session time multiplied by a
+**speed-dependent** frequency. Whenever speed changed, the phase jumped by
+`time × Δcadence`, so the error grew without bound as a session ran.
+
+Measured leg movement per frame (a smooth 60 Hz cycle steps ~0.21 rad):
+
+| session age when you start moving | before | after |
+| --- | ---: | ---: |
+| fresh (0 s) | 0.22 rad | 0.21 rad |
+| 30 s | **1.60 rad** | 0.21 rad |
+| 120 s | **1.63 rad** | 0.21 rad |
+| 600 s | — | 0.21 rad |
+| 400 s | — | 0.215 rad |
+
+It also never truly settled: after the speed ramp it was still jumping 1.3–1.66
+rad/frame, because even a tiny cadence wobble is multiplied by a large elapsed
+time.
+
+The phase is now **integrated** (`runPhase += cadence * dt`), which is immune to
+frequency changes. The idle bob and air sway were moved to accumulators too.
+Added a `runBlendTime` (0.11 s) cross-fade between idle and run so the legs ease
+in and out instead of snapping — starts now read 0.02 → 0.09 → 0.20 → 0.35 rad.
+
+## 2. Lock-on is now a toggle
+
+`controls.lockIsHold` defaults to 0. Press to lock, press again to cycle to the
+next living target, press with one target left to release. Hold-to-lock is still
+there behind the same flag.
+
+## 3. Settings editor — sliders or fields, and a pause menu
+
+New `src/settings.js` holds one `SettingsEditor`, mounted in **two** places: the
+debug overlay (`~`) and a new **pause menu** (`Esc`, `src/pause.js`).
+
+- **Sliders or number fields**, switchable at the top of the panel and
+  remembered in `localStorage`. Slider bounds come from `TUNING_RANGES` where a
+  value has a meaningful one, and are otherwise inferred from the shipped
+  default (0 … 4×). Typing a value outside the inferred bounds widens the
+  slider rather than clamping it.
+- **Filter box** — 444 editable parameters is too many to scroll; filtering by
+  path (e.g. `magnetism`) narrows it to 8 and auto-opens the matching groups.
+- **Rebinding** moved into the shared editor, so it is reachable from the pause
+  menu without the developer overlay.
+- Pause freezes the sim (verified: zero sim steps advance while open) and does
+  not bank real time, so resuming doesn't fast-forward.
+
+One bug this introduced and fixed: typing into the filter box was driving the
+game — `J`/`K`/`L` buffered attacks and a literal backtick toggled the debug
+overlay. Keyboard events originating from an editable field are now ignored by
+the input system, and buffers are cleared on pause and resume.

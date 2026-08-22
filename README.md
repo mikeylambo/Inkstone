@@ -30,8 +30,9 @@ run seed — same seed + same inputs produce the same run.
 | Jump | `Space` | A |
 | Dash (8-dir, i-frames) | `Shift` | RT |
 | Parry | `F` | LB |
-| Lock-on (hold) | `Q` or `Tab` | RB |
+| Lock-on (toggle / cycle) | `Q` or `Tab` | RB |
 | Camera nudge (free cam) | — | Right stick |
+| Pause &amp; settings | `Esc` | — |
 | Debug overlay | `` ` `` (backquote) | — |
 
 Lock-on directional moves (while locked):
@@ -46,8 +47,13 @@ Movement is camera-relative and the basis latches while the stick is held, so a
 moving camera can't curve a held direction. Jump cancels an attack past its
 `cancelAfter` — that's the jump-cancel air combos are built on.
 
-Every binding is remappable from the debug overlay (`` ` `` → *bindings*), and
-persists in `localStorage`.
+Lock-on is a toggle by default and cycles targets while more than one is alive;
+set `controls.lockIsHold` to 1 for hold-to-lock.
+
+**Esc** opens the pause menu, which freezes the sim and hosts the full settings
+editor: every tuning value as a slider or a number field (your choice,
+remembered), a filter box, and key/pad rebinding. The same editor is embedded in
+the debug overlay. Bindings persist in `localStorage`.
 
 ## Layout
 
@@ -61,7 +67,9 @@ src/
   audio.js           Procedural Tone.js — one signature per attack class
   camera.js          Lock-on framing, trauma shake, FOV punch
   hud.js             Vitals, target, stroke counter
-  debug.js           `~` overlay: state, hitboxes, live tuning editors
+  debug.js           `~` overlay: state, hitboxes, embedded settings editor
+  settings.js        The settings editor — sliders/fields + rebinding
+  pause.js           Esc pause menu, hosts the same editor
   anim/poses.js      Key-poses + phase-space attack tracks
   combat/attacks.js  Attack identity (track, sound, trail, stroke type)
   combat/hits.js     Hit resolution and every hit-reaction class

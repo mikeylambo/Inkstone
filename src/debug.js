@@ -3,8 +3,9 @@
  * editable live. The stroke registry readout is stubbed — it arrives in V0.3.
  */
 import * as THREE from 'three';
-import { TUNING, TUNING_DEFAULTS, setTuning, getTuning } from './tuning.js';
-import { Input, ACTIONS, ACTION_LABELS } from './input.js';
+import { TUNING } from './tuning.js';
+import { Input } from './input.js';
+import { SettingsEditor } from './settings.js';
 import { World } from './world.js';
 import { PALETTE } from './gfx/materials.js';
 import { isActiveFrames } from './combat/attacks.js';
@@ -196,112 +197,14 @@ export class Debug {
     mkBtn('+8 oni', () => this.hooks.spawn(8));
     mkBtn('kill all', () => this.hooks.killAll());
     mkBtn('reset arena', () => this.hooks.reset());
-    mkBtn('reset tuning', () => { this.resetTuning(); });
+    mkBtn('reset tuning', () => { this.settings.resetTuning(); });
     this.panel.appendChild(btnBar);
 
-    // --- key / pad remapping ---
-    mkSection('bindings (click to rebind)');
-    this.bindRows = [];
-    for (const action of ACTIONS) {
-      const row = document.createElement('div');
-      row.className = 'row bindrow';
-      const a = document.createElement('span');
-      a.textContent = ACTION_LABELS[action] || action;
-      const b = document.createElement('span');
-      b.textContent = Input.describeBinding(action);
-      row.append(a, b);
-      row.onclick = () => {
-        if (this.remapRow) this.remapRow.b.textContent = Input.describeBinding(this.remapRow.action);
-        b.textContent = 'press a key / button…';
-        this.remapRow = { action, b };
-        Input.beginRemap(action, (desc) => {
-          b.textContent = desc;
-          this.remapRow = null;
-        });
-      };
-      this.panel.appendChild(row);
-      this.bindRows.push({ action, b });
-    }
-    const bindBar = document.createElement('div');
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = 'reset bindings';
-    resetBtn.onclick = () => {
-      Input.resetBindings();
-      for (const r of this.bindRows) r.b.textContent = Input.describeBinding(r.action);
-    };
-    bindBar.appendChild(resetBtn);
-    this.panel.appendChild(bindBar);
-
-    // --- live tuning ---
-    mkSection('tuning (live)');
-    for (const key of Object.keys(TUNING)) {
-      const det = document.createElement('details');
-      const sum = document.createElement('summary');
-      sum.textContent = key;
-      det.appendChild(sum);
-      this.buildTuningTree(det, TUNING[key], key);
-      this.panel.appendChild(det);
-    }
-  }
-
-  buildTuningTree(parent, obj, prefix) {
-    for (const k of Object.keys(obj)) {
-      const v = obj[k];
-      const path = `${prefix}.${k}`;
-      if (typeof v === 'number') {
-        const row = document.createElement('div');
-        row.className = 'tune';
-        const label = document.createElement('label');
-        label.textContent = k;
-        label.title = path;
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.step = Math.abs(v) >= 10 ? 0.5 : Math.abs(v) >= 1 ? 0.1 : 0.005;
-        input.value = String(v);
-        input.dataset.path = path;
-        input.addEventListener('change', () => {
-          const n = parseFloat(input.value);
-          if (!Number.isNaN(n)) setTuning(path, n);
-        });
-        row.append(label, input);
-        parent.appendChild(row);
-      } else if (typeof v === 'string') {
-        const row = document.createElement('div');
-        row.className = 'tune';
-        const label = document.createElement('label');
-        label.textContent = k;
-        label.title = path;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = v;
-        input.dataset.path = path;
-        input.addEventListener('change', () => setTuning(path, input.value.trim()));
-        row.append(label, input);
-        parent.appendChild(row);
-      } else if (v && typeof v === 'object') {
-        const det = document.createElement('details');
-        const sum = document.createElement('summary');
-        sum.textContent = k;
-        det.appendChild(sum);
-        this.buildTuningTree(det, v, path);
-        parent.appendChild(det);
-      }
-    }
-  }
-
-  resetTuning() {
-    const walk = (src, prefix) => {
-      for (const k of Object.keys(src)) {
-        const v = src[k];
-        const path = `${prefix}.${k}`;
-        if (typeof v === 'number' || typeof v === 'string') setTuning(path, v);
-        else if (v && typeof v === 'object') walk(v, path);
-      }
-    };
-    for (const key of Object.keys(TUNING_DEFAULTS)) walk(TUNING_DEFAULTS[key], key);
-    this.panel.querySelectorAll('input[data-path]').forEach((i) => {
-      i.value = String(getTuning(i.dataset.path));
-    });
+    // --- settings: bindings + every tuning value (shared with the pause menu) ---
+    mkSection('settings');
+    const settingsHost = document.createElement('div');
+    this.panel.appendChild(settingsHost);
+    this.settings = new SettingsEditor(settingsHost);
   }
 
   // ----------------------------------------------------------------- update

@@ -74,6 +74,12 @@ export class Player {
 
     // movement basis latch (gate F4)
     this.lockHeldPrev = false;
+    // Run-cycle phase is INTEGRATED, never derived from absolute time. See
+    // animate(): sin(World.time * cadence) jumps by time*deltaCadence whenever
+    // speed changes, which grows without bound as a session runs.
+    this.runPhase = 0;
+    this.runBlend = 0;
+    this.idlePhase = 0;
     this.basisLatched = false;
     this.latchF = new THREE.Vector3(0, 0, 1);
     this.latchR = new THREE.Vector3(1, 0, 0);
@@ -895,8 +901,19 @@ export class Player {
 
   animate(dt) {
     const rig = this.rig;
-    const t = World.time;
     let pose;
+
+    // integrate cycle phases; never multiply absolute time by a live frequency
+    this.idlePhase += 1.9 * dt;
+    const running = this.moving && this.grounded && this.state === 'free';
+    const speed = Math.hypot(this.vel.x, this.vel.z);
+    const cadence = 9.0 + speed * 0.65;
+    if (running) this.runPhase += cadence * dt;
+    const blendRate = dt / Math.max(1e-4, TUNING.player.runBlendTime);
+    this.runBlend = running
+      ? Math.min(1, this.runBlend + blendRate)
+      : Math.max(0, this.runBlend - blendRate);
+    if (this.runBlend === 0) this.runPhase = 0;
 
     if (this.state === 'attack' && this.attack) {
       const def = this.attack.def;
@@ -932,29 +949,31 @@ export class Player {
       }
     } else if (!this.grounded) {
       pose = blendPoses(POSES.air_idle, POSES.air_idle, 0, this.scratch);
-      const sway = Math.sin(t * 5) * 0.06;
+      const sway = Math.sin(this.idlePhase * 2.6) * 0.06;
       pose.rLeg[0] += sway; pose.lLeg[0] -= sway;
-    } else if (this.moving) {
-      // procedural run cycle layered on the ready pose
-      const speed = Math.hypot(this.vel.x, this.vel.z);
-      const cadence = 9.0 + speed * 0.65;
-      const s = Math.sin(t * cadence);
-      const c = Math.cos(t * cadence);
-      pose = blendPoses(POSES.ready, POSES.ready, 0, this.scratch);
-      pose.rLeg[0] = s * 0.85;
-      pose.lLeg[0] = -s * 0.85;
-      pose.lArm[0] = s * 0.7 - 0.2;
-      pose.rArm[0] = -s * 0.25 + 0.2;
-      pose.torso[0] = 0.14;
-      pose.torso[1] = c * 0.06;
-      pose.y = Math.abs(s) * 0.09;
     } else {
+      // Grounded idle <-> run, cross-faded by runBlend so neither pops.
       pose = blendPoses(POSES.ready, POSES.ready, 0, this.scratch);
-      const b = Math.sin(t * 1.9);
-      pose.torso[0] = 0.02 + b * 0.02;
-      pose.y = b * 0.035;
-      pose.rArm[0] = 0.2 + b * 0.04;
-      pose.lArm[0] = -0.2 - b * 0.04;
+
+      const idleAmt = 1 - this.runBlend;
+      const b = Math.sin(this.idlePhase);
+      pose.torso[0] = 0.02 * idleAmt + b * 0.02 * idleAmt;
+      pose.y = b * 0.035 * idleAmt;
+      pose.rArm[0] = 0.2 + b * 0.04 * idleAmt;
+      pose.lArm[0] = -0.2 - b * 0.04 * idleAmt;
+
+      if (this.runBlend > 0) {
+        const k = this.runBlend;
+        const s = Math.sin(this.runPhase);
+        const c = Math.cos(this.runPhase);
+        pose.rLeg[0] += s * 0.85 * k;
+        pose.lLeg[0] += -s * 0.85 * k;
+        pose.lArm[0] += s * 0.7 * k;
+        pose.rArm[0] += -s * 0.25 * k;
+        pose.torso[0] += 0.14 * k;
+        pose.torso[1] += c * 0.06 * k;
+        pose.y += Math.abs(s) * 0.09 * k;
+      }
     }
 
     applyPose(rig, pose);
