@@ -349,3 +349,85 @@ directly; the focus listener remains only for mouse and Tab users.
 Regression after all of the above: G2.4 still 0.000000 m unlocked for all six
 attacks, F1 still 0 sim steps, the run cycle still 0.215 rad/frame at 500 s of
 session time, and a 90-second soak with pause/unpause churn threw nothing.
+
+
+---
+
+# Follow-up 3 — lock-on dash reversal, pause-menu scrolling
+
+## Dashing past a locked target sent you flying away — fixed
+
+Reported as: dash toward a locked enemy, pass them, keep dashing, and you move
+backwards instead of back toward them. Reproduced exactly.
+
+The cause was the movement-basis latch. It captures the camera basis when you
+press the stick and holds it until the stick returns to deadzone or swings more
+than `latchBreakAngle`. Holding one direction through several dashes does
+neither — so the basis stayed pinned while the lock-on camera swung around
+behind you:
+
+| | start | dash 1 | dash 2 | dash 3 | dash 4 | dash 5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| latched basis yaw | 39° | 39° | 39° | 39° | 39° | 39° |
+| actual camera yaw | 39° | −14° | −80° | −94° | −97° | −99° |
+| distance to enemy | 6.0 m | 3.6 | 8.3 | 13.2 | 18.2 | **19.8** |
+
+"Forward" still meant the world direction from before the pass, so you kept
+travelling away.
+
+**The latch is now off while locked on** (`controls.latchWhileLocked`, default
+0). The latch exists to break the *free*-camera feedback spiral — camera chases
+your velocity, basis follows camera, velocity rotates, repeat. Lock-on has no
+such loop, because the camera yaw comes from the player→target axis rather than
+from your velocity. Unlatched, forward always means toward the target and
+sideways strafes around it, which is what the genre expects. In the free camera
+the latch stays, and a deliberate right-stick nudge now breaks it so a manual
+camera turn takes effect immediately.
+
+After the fix, the same dash sequence holds distance instead of running away:
+**2.7 → 4.2 → 4.1 → 4.2 → 4.2 → 4.2 m**. Circle-strafing holds a 2.6–4.5 m
+radius rather than drifting off, and holding forward while locked still walks
+essentially straight at the target (0.53 m deviation over 8 m, the slight arc
+being the target axis rotating as you close).
+
+### F3 had to be restated
+
+The old F3 test measured net screen displacement over 24 steps. That is no
+longer a meaningful measure: with the basis continuously target-relative,
+circle-strafing keeps the player near the centre of frame while the world
+rotates behind them, so net screen movement is near zero or even negative. It
+is now measured the way the gate actually reads — at the instant of input, does
+the character move along the camera's right vector:
+
+| camera yaw | 39° | 3° | 158° | −79° | 84° | −81° | 159° | 59° |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| agreement with screen-right | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+F4 is unchanged: free-camera diagonal hold is still 0.000 m deviation latched
+versus 16.643 m unlatched.
+
+## Pause menu could not scroll past the first group — fixed
+
+`#pause-body` is a flex child of a column flex container. A flex child defaults
+to `min-height: auto`, which refuses to shrink below its content, so instead of
+becoming a scroller the list grew to its full height and spilled out of the
+panel — everything below the fold was unreachable. The panel also had
+`overflow: visible`, so nothing clipped it.
+
+`flex: 1 1 auto; min-height: 0` on the body and `overflow: hidden` on the panel.
+Verified at 1280x800 in three states:
+
+| | body height | content height | scrollable | last group reachable |
+| --- | ---: | ---: | --- | --- |
+| all groups collapsed | 626 px | 761 px | yes | yes |
+| `sim` expanded | 626 px | 833 px | yes | yes |
+| `attacks` expanded | 626 px | 997 px | yes | yes |
+
+## A note on the two false alarms in this pass
+
+Two regression checks initially came back red — nonzero G2.4 displacement and
+negative F3 screen movement. Both were faults in the tests, not the game. The
+G2.4 helper left a live hostile oni in the arena which respawns automatically,
+and it was knocking the player mid-attack; the displacement being measured was
+knockback, not magnetism. With the player made immune for the measurement,
+G2.4 is 0.000000 m for all six attacks again.

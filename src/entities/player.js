@@ -224,9 +224,16 @@ export class Player {
     }
     _camR.crossVectors(_camF, UP).normalize();
 
-    if (C.latchBasis && C.scheme !== 'character') {
+    const locked = !!(World.lockTarget && !World.lockTarget.dead);
+    const wantLatch = C.latchBasis && C.scheme !== 'character' &&
+      (!locked || C.latchWhileLocked);
+
+    if (wantLatch) {
       const swung = Math.abs(angleDelta(rawAngle, this.latchAngle)) > C.latchBreakAngle;
-      if (!this.basisLatched || swung) {
+      // a deliberate camera turn should take effect at once; the camera's own
+      // automatic chase must NOT break the latch or the spiral comes back
+      const nudged = Math.abs(Input.camNudge) > 0;
+      if (!this.basisLatched || swung || nudged) {
         this.latchF.copy(_camF);
         this.latchR.copy(_camR);
         this.latchAngle = rawAngle;

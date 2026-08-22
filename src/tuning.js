@@ -392,6 +392,16 @@ export const TUNING = {
      * cannot curve a held direction into a spiral (gate F4).
      */
     latchBasis: 1,
+    /**
+     * Latching while LOCKED ON is wrong and is off by default. The latch
+     * exists to break the free-camera feedback spiral (camera chases your
+     * velocity -> basis follows camera -> velocity rotates -> repeat). Lock-on
+     * has no such loop: the camera yaw comes from the player->target axis. With
+     * the basis latched, dashing past a target left "forward" pointing at where
+     * the target used to be, so you flew away from it. Unlatched, forward
+     * always means toward the target and sideways strafes around it.
+     */
+    latchWhileLocked: 0,
     latchBreakAngle: 1.05,   // rad; re-latch if the stick swings more than this
     deadzone: 0.22,
     outerDeadzone: 0.95,

@@ -43,8 +43,11 @@ Lock-on directional moves (while locked):
 | away + light | High Time — launcher |
 | toward + heavy | Splitter |
 
-Movement is camera-relative and the basis latches while the stick is held, so a
-moving camera can't curve a held direction. Jump cancels an attack past its
+Movement is camera-relative. In the free camera the movement basis latches
+while the stick is held, so a drifting camera can't curve a held direction. While
+locked on it does not latch — forward always means toward the target and
+sideways strafes around it, so dashing past an enemy turns you back toward them
+instead of sending you away. Jump cancels an attack past its
 `cancelAfter` — that's the jump-cancel air combos are built on.
 
 Lock-on is a toggle by default and cycles targets while more than one is alive;
