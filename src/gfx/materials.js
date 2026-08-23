@@ -79,28 +79,52 @@ function createBrushTexture() {
 }
 
 /**
- * Torn-bristle brush for the SlashFan — the prototype recipe, verbatim:
- * 40 random opaque rects on a transparent field, no solid body. The gaps are
- * the point. `brushTexture` above stays polished and belongs to Ribbon; this
- * one is deliberately cruder and reads as a single struck mark.
+ * Bristle brush for the SlashFan.
+ *
+ * The prototype recipe (40 random rects, len 50-250, h 2-10, on 256x64) reads
+ * as SOLID: that is ~2.2x over-coverage, so the streaks pile on top of each
+ * other and fill the canvas — measured 75% fully opaque. A solid arc reads as a
+ * shadow rather than a brush stroke, which is why the black strokes looked like
+ * smudges while only the vermilion one read as "drawn".
+ *
+ * This lays down actual bristles: parallel runs separated by bare paper, each
+ * broken along its length, denser through the middle of the brush and drying
+ * out toward the tail. Paired with the polar-uv arc geometry in slashfan.js the
+ * stripes follow the sweep of the stroke instead of cutting across it.
  */
 function createDryBrushTexture() {
-  const W = 256, H = 64;
+  const W = 512, H = 64;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, W, H);
-  // White, not the prototype's near-black: MeshBasicMaterial multiplies map by
-  // material.color, so an almost-black texture crushes every trail colour to
-  // the same dark smear and the A3 palette can't read. The SHAPE below is the
-  // prototype recipe unchanged; only the ink colour moves to material.color.
   ctx.fillStyle = '#ffffff';
-  for (let i = 0; i < 40; i++) {
-    const y = Math.random() * H;
-    const h = Math.random() * 8 + 2;
-    const len = Math.random() * 200 + 50;
-    ctx.fillRect(Math.random() * 30, y, len, h);
+
+  let y = 0;
+  while (y < H) {
+    // most bristles are hairlines; a few are fat, ink-loaded ones
+    const thick = Math.random() < 0.30;
+    const bandH = (thick ? 3 : 1.2) + Math.random() * (thick ? 5 : 3.5);
+    const gap = 0.6 + Math.random() * 2.2;      // bare paper between bristles
+
+    if (Math.random() < 0.95) {
+      const centre = 1 - Math.abs(y / H - 0.5) * 2;   // brush holds most ink mid-width
+      const density = 0.60 + 0.40 * centre;
+      let x = Math.random() * 40;
+      const end = W - Math.random() * 80;
+      while (x < end) {
+        const seg = 30 + Math.random() * 190;
+        const dryOut = 1 - 0.62 * (x / W);            // runs out toward the tail
+        ctx.globalAlpha = Math.max(0, Math.min(1,
+          density * dryOut * (0.7 + Math.random() * 0.3)));
+        ctx.fillRect(x, y, Math.min(seg, end - x), bandH);
+        x += seg + (2 + Math.random() * (thick ? 14 : 26));   // break along the run
+      }
+    }
+    y += bandH + gap;
   }
+  ctx.globalAlpha = 1;
+
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;

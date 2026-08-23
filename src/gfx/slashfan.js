@@ -19,14 +19,41 @@ import { dryBrushTexture } from './materials.js';
 /** Arc geometries are shared across every attack that asks for the same shape. */
 const geoCache = new Map();
 
-function arcGeometry(innerR, outerR, sweep) {
+/**
+ * Arc with POLAR uvs: u runs along the sweep, v across the width.
+ *
+ * THREE.RingGeometry projects uvs planar across the ring's bounding box, so a
+ * striped texture cuts straight across the crescent as parallel chords. With
+ * u = theta the bristle lines follow the curve of the stroke instead, which is
+ * what makes it read as a swept brush mark rather than a printed shape.
+ */
+function arcGeometry(innerR, outerR, sweep, segments = 48) {
   const key = `${innerR.toFixed(3)}|${outerR.toFixed(3)}|${sweep.toFixed(4)}`;
   let g = geoCache.get(key);
-  if (!g) {
-    // centred on theta 0 so the per-attack rotation is the only thing aiming it
-    g = new THREE.RingGeometry(innerR, outerR, 20, 1, -sweep * 0.5, sweep);
-    geoCache.set(key, g);
+  if (g) return g;
+
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const theta = -sweep * 0.5 + sweep * t;
+    const cos = Math.cos(theta), sin = Math.sin(theta);
+    positions.push(cos * innerR, sin * innerR, 0);
+    uvs.push(t, 0);
+    positions.push(cos * outerR, sin * outerR, 0);
+    uvs.push(t, 1);
   }
+  for (let i = 0; i < segments; i++) {
+    const a = i * 2;
+    indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+
+  g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  g.setIndex(indices);
+  geoCache.set(key, g);
   return g;
 }
 
