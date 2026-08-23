@@ -28,6 +28,8 @@ const _camR = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 const _tip = new THREE.Vector3();
 const _hilt = new THREE.Vector3();
+const _tipA = new THREE.Vector3();
+const _tipB = new THREE.Vector3();
 
 function angleDelta(a, b) {
   let d = a - b;
@@ -90,7 +92,14 @@ export class Player {
 
     this.buildModel();
     scene.add(this.mesh);
-    this.ribbon = new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi });
+    // Two ribbons, used alternately. Starting an attack used to clear() the
+    // single ribbon, so every attack in a string erased the previous trail;
+    // swapping instead lets the old one fade out under the new one.
+    this.ribbons = [
+      new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi }),
+      new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi }),
+    ];
+    this.ribbonIndex = 0;
     // the fan is parented to the player group so it swings with the body
     this.fan = new SlashFan(this.mesh);
   }
@@ -190,6 +199,16 @@ export class Player {
 
   // ------------------------------------------------------------- helpers
 
+  /** The ribbon currently being written to. */
+  get ribbon() { return this.ribbons[this.ribbonIndex]; }
+
+  /** Hand the next attack a fresh ribbon; the previous one fades on its own. */
+  swapRibbon() {
+    this.ribbonIndex = (this.ribbonIndex + 1) % this.ribbons.length;
+    this.ribbon.clear();
+    return this.ribbon;
+  }
+
   get height() { return 1.9; }
   get radius() { return TUNING.player.radius; }
 
@@ -277,7 +296,7 @@ export class Player {
     this.integrate(dt);
     this.animate(dt);
     this.sampleRibbon();
-    this.ribbon.update(dt);
+    for (const r of this.ribbons) r.update(dt);
     this.fan.update(dt);
   }
 
@@ -493,7 +512,7 @@ export class Player {
       whiffed: true,
     };
 
-    this.ribbon.clear();
+    this.swapRibbon();
     this.ribbon.setColor(def.trail);
     // The mark is stamped whole, right now, on the same step the attack
     // starts -- deliberately before any active frame. See slashfan.js.
@@ -607,7 +626,7 @@ export class Player {
     this.dive = { phase: 'hang', timer: 0, hitSet: new Set() };
     this.vel.x *= 0.2; this.vel.z *= 0.2;
     this.vel.y = TUNING.attacks.dive.hangRise;
-    this.ribbon.clear();
+    this.swapRibbon();
     this.ribbon.setColor(0x1c1917);
     Audio.whiff(0.55);
     World.camRig.zoomPunch(TUNING.attacks.dive.zoom * 0.35);
@@ -987,20 +1006,41 @@ export class Player {
     this.mesh.updateMatrixWorld(true);
   }
 
+  /** World position of the blade tip at a given point in an attack. */
+  bladeTipAt(def, t, out) {
+    applyPose(this.rig, evalTrack(TRACKS[def.track], phaseOf(def, t), this.scratchB));
+    this.mesh.updateMatrixWorld(true);
+    return this.tipMarker.getWorldPosition(out);
+  }
+
   sampleRibbon() {
+    const F = TUNING.fx;
     const a = this.attack;
-    const emitFrom = a ? a.def.anticipation * TUNING.fx.trailLeadFrac : 0;
-    const swinging = this.state === 'attack' && a &&
-      a.elapsed >= emitFrom && a.elapsed < a.def.anticipation + a.def.active;
+    const emitFrom = a ? a.def.anticipation * F.trailLeadFrac : 0;
+    // keep drawing a little past the active window so the follow-through is
+    // part of the stroke, not cut off at the hitbox
+    const emitUntil = a ? a.def.anticipation + a.def.active + F.trailFollowThrough : 0;
+    const swinging = this.state === 'attack' && a && a.def.track &&
+      a.elapsed >= emitFrom && a.elapsed < emitUntil;
     const diving = this.state === 'dive' && this.dive && this.dive.phase === 'fall';
 
     if (swinging) {
-      // walk the pose between the previous step and this one so the stroke
-      // describes the actual arc rather than a two-point chord
-      const subs = Math.max(1, Math.round(TUNING.fx.trailSubSamples));
       const track = TRACKS[a.def.track];
       const from = Math.max(a.prevElapsed, emitFrom);
       const span = a.elapsed - from;
+      if (span <= 0) return;
+
+      // How far does the tip actually travel this step? Sample densely enough
+      // that consecutive samples are ~trailSampleDist apart regardless of how
+      // fast this particular attack swings.
+      this.bladeTipAt(a.def, from, _tipA);
+      this.bladeTipAt(a.def, a.elapsed, _tipB);
+      const chord = _tipA.distanceTo(_tipB);
+      const subs = Math.max(1, Math.min(
+        Math.round(F.trailMaxSubSamples),
+        Math.ceil(chord / Math.max(0.001, F.trailSampleDist))
+      ));
+
       for (let i = 1; i <= subs; i++) {
         const t = from + (span * i) / subs;
         applyPose(this.rig, evalTrack(track, phaseOf(a.def, t), this.scratchB));

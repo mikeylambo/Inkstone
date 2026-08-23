@@ -342,12 +342,18 @@ export const TUNING = {
         dive:      { innerR: 0.6, outerR: 4.4, sweep: 6.283, rot: [1.5708, 0, 0], offsetY: 0.4 },
       },
     },
-    trailSamples: 30,
-    trailSubSamples: 4,      // pose evaluations per sim step while swinging.
-                             // A 75ms swing is under 5 steps at 60Hz, which is
-                             // far too coarse to describe an arc — so the blade
-                             // transform is evaluated between steps too.
-    trailLife: 0.22,
+    trailSamples: 160,     // headroom so a long swing isn't truncated mid-stroke
+    /**
+     * The ribbon samples by DISTANCE, not by a fixed count per sim step. A
+     * fixed count gave wildly different density depending on swing speed —
+     * measured 12.9 samples/m on the heavy against 2.5 on light 1, which is
+     * why only the slow attacks read as a continuous smear.
+     */
+    trailSampleDist: 0.085,  // metres of blade-tip travel between samples
+    trailMaxSubSamples: 28,  // cost bound on pose evaluations per sim step
+    trailFollowThrough: 0.07, // keep emitting this long past the active window,
+                              // so the trail carries the follow-through
+    trailLife: 0.34,
     trailLeadFrac: 0.85,     // fraction of anticipation at which the stroke
                              // starts drawing. Matches the pose track's '_mid'
                              // key, so the trail only ever samples the swing —
