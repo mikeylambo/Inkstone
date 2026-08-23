@@ -79,54 +79,53 @@ function createBrushTexture() {
 }
 
 /**
- * Bristle brush for the SlashFan.
+ * Layered plates for the SlashFan.
  *
- * The prototype recipe (40 random rects, len 50-250, h 2-10, on 256x64) reads
- * as SOLID: that is ~2.2x over-coverage, so the streaks pile on top of each
- * other and fill the canvas — measured 75% fully opaque. A solid arc reads as a
- * shadow rather than a brush stroke, which is why the black strokes looked like
- * smudges while only the vermilion one read as "drawn".
+ * Two failed shapes before this one, both worth recording:
  *
- * This lays down actual bristles: parallel runs separated by bare paper, each
- * broken along its length, denser through the middle of the brush and drying
- * out toward the tail. Paired with the polar-uv arc geometry in slashfan.js the
- * stripes follow the sweep of the stroke instead of cutting across it.
+ *  - The prototype recipe (40 random rects on 256x64) is ~2.2x over-coverage,
+ *    so the streaks pile up and fill the canvas: measured 75% FULLY OPAQUE. A
+ *    solid arc reads as a shadow, not a stroke.
+ *  - Replacing it with fine bristles went too far the other way: many thin
+ *    bands at partial alpha, 0% of it opaque. Magnified across a big arc, the
+ *    bilinear filter blends them into a soft translucent wash — the exact
+ *    "solid colour" look it was meant to cure, just fuzzier.
+ *
+ * What reads is FEW, THICK, FULLY OPAQUE bands with hard gaps: discrete plates
+ * stacked along the sweep, like the smear frames in hand-drawn animation. Kept
+ * hard by NearestFilter on magnification — no interpolation to soften an edge.
  */
 function createDryBrushTexture() {
-  const W = 512, H = 64;
+  const W = 256, H = 64;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 1;                          // opaque or nothing
 
   let y = 0;
   while (y < H) {
-    // most bristles are hairlines; a few are fat, ink-loaded ones
-    const thick = Math.random() < 0.30;
-    const bandH = (thick ? 3 : 1.2) + Math.random() * (thick ? 5 : 3.5);
-    const gap = 0.6 + Math.random() * 2.2;      // bare paper between bristles
+    const bandH = 4 + Math.random() * 9;        // thick plates, not hairlines
+    const gap = 2 + Math.random() * 5;          // hard bare-paper gap
 
-    if (Math.random() < 0.95) {
-      const centre = 1 - Math.abs(y / H - 0.5) * 2;   // brush holds most ink mid-width
-      const density = 0.60 + 0.40 * centre;
-      let x = Math.random() * 40;
-      const end = W - Math.random() * 80;
+    if (Math.random() < 0.88) {
+      // plates end at different points, so the stroke frays rather than
+      // stopping square
+      let x = Math.random() * 26;
+      const end = W * (0.55 + Math.random() * 0.45);
       while (x < end) {
-        const seg = 30 + Math.random() * 190;
-        const dryOut = 1 - 0.62 * (x / W);            // runs out toward the tail
-        ctx.globalAlpha = Math.max(0, Math.min(1,
-          density * dryOut * (0.7 + Math.random() * 0.3)));
+        const seg = 40 + Math.random() * 150;
         ctx.fillRect(x, y, Math.min(seg, end - x), bandH);
-        x += seg + (2 + Math.random() * (thick ? 14 : 26));   // break along the run
+        x += seg + (6 + Math.random() * 40);    // hard break along the plate
       }
     }
     y += bandH + gap;
   }
-  ctx.globalAlpha = 1;
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.magFilter = THREE.NearestFilter;            // keep the plate edges hard
   return t;
 }
 
