@@ -95,10 +95,10 @@ export class Player {
     // Two ribbons, used alternately. Starting an attack used to clear() the
     // single ribbon, so every attack in a string erased the previous trail;
     // swapping instead lets the old one fade out under the new one.
-    this.ribbons = [
-      new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi }),
-      new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi }),
-    ];
+    this.ribbons = [];
+    for (let i = 0; i < Math.max(2, Math.round(TUNING.fx.trailLayers)); i++) {
+      this.ribbons.push(new Ribbon(scene, { max: TUNING.fx.trailSamples, color: PALETTE.sumi }));
+    }
     this.ribbonIndex = 0;
     // the fan is parented to the player group so it swings with the body
     this.fan = new SlashFan(this.mesh);

@@ -1,5 +1,5 @@
 /**
- * SUMI — V0.2 Combat Feel.
+ * SUMI — Combat Feel.
  *
  * Fixed-timestep sim (60 Hz) decoupled from render, seeded PRNG, hit-stop
  * that freezes the world in whole sim steps.
@@ -20,6 +20,14 @@ import { Oni } from './entities/oni.js';
 import { Hud } from './hud.js';
 import { Debug } from './debug.js';
 import { PauseMenu } from './pause.js';
+
+// Build version, injected from package.json by vite.config.js
+const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
+document.title = `SUMI — V${VERSION}`;
+{
+  const el = document.getElementById('version');
+  if (el) el.textContent = `SUMI · V${VERSION} · Combat Feel`;
+}
 
 // --------------------------------------------------------------- renderer
 
@@ -228,6 +236,7 @@ requestAnimationFrame(frame);
 // expose for console poking during tuning sessions and for the headless
 // harness used to produce gate evidence in REPORT.md
 window.SUMI = {
+  VERSION,
   World, TUNING, Input, Audio, scene, camera, renderer, pauseMenu,
   spawnOni, killAll, resetArena, simStep, STEP,
 

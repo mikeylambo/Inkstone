@@ -219,6 +219,7 @@ export const PATH_DOCS = {
   'fx.petalLife': 'How long a sakura petal lives.',
   'fx.shockwaveLife': 'How long the dive shockwave ring lasts.',
   'fx.shockwaveMaxRadius': 'How far the shockwave ring expands.',
+  'fx.fan.enabled': 'The stamped plate arc that fires on button-down. 0 leaves the swept Ribbon as the only trail. Turning it on restores an instant mark at the cost of two visual languages overlapping on fast attacks.',
   'fx.fan.opacity': 'Opacity the SlashFan is stamped at. The fan is the stylized attack mark and the main source of impact.',
   'fx.fan.fadeRate': 'How fast the fan fades, in opacity per second. It fades as one shape and never redraws.',
   'fx.fan.widthScale': 'Global size multiplier on every fan arc.',

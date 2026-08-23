@@ -320,6 +320,13 @@ export const TUNING = {
     // where the sword's impact comes from. Per-attack specs live here rather
     // than in ATTACK_META so the debug panel can tune the planes live.
     fan: {
+      /**
+       * The stamped plate arc. Off by default: the Ribbon (the swept blade
+       * path) is the trail, and on fast attacks the fan's hard concentric
+       * plates sit awkwardly beside the ribbon's soft smear. Flip to 1 in the
+       * pause menu to bring it back without a rebuild.
+       */
+      enabled: 0,
       opacity: 0.95,
       fadeRate: 4.5,
       widthScale: 1.0,
@@ -343,6 +350,10 @@ export const TUNING = {
       },
     },
     trailSamples: 160,     // headroom so a long swing isn't truncated mid-stroke
+    trailLayers: 4,        // independent trails alive at once. A 3-hit string
+                           // at ~100ms spacing outlives trailLife, so fewer
+                           // layers than that means a combo overwrites its own
+                           // earlier strokes. Pool size — set at construction.
     /**
      * The ribbon samples by DISTANCE, not by a fixed count per sim step. A
      * fixed count gave wildly different density depending on swing speed —

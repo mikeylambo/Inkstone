@@ -88,6 +88,7 @@ export class SlashFan {
    */
   trigger(attackKey, colorHex) {
     const F = TUNING.fx.fan;
+    if (!F.enabled) { this.clear(); return; }
     const spec = SlashFan.specFor(attackKey);
     const s = F.widthScale;
 

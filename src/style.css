@@ -301,3 +301,11 @@ canvas { display: block; width: 100vw; height: 100vh; }
 #debug-panel .bindrow:focus,
 #pause-body .bindrow:focus { background: #44403c; }
 #pause-body summary:focus { color: #fef2f2; }
+
+/* --- build version badge --- */
+#version {
+  position: absolute; top: 122px; left: 22px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  letter-spacing: 0.14em; color: var(--wash); opacity: 0.75;
+  pointer-events: none;
+}
