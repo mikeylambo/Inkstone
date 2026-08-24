@@ -1,9 +1,9 @@
 {
   "name": "sumi",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.5",
   "type": "module",
-  "description": "SUMI (codename SlayRank) - vertical slice. V0.2: Combat Feel.",
+  "description": "SUMI (codename SlayRank) - vertical slice. V0.2.5: The Shell.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

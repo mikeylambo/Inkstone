@@ -1,8 +1,9 @@
 /**
- * SUMI — Combat Feel.
+ * SUMI — entry point.
  *
- * Fixed-timestep sim (60 Hz) decoupled from render, seeded PRNG, hit-stop
- * that freezes the world in whole sim steps.
+ * Fixed-timestep sim (60 Hz) decoupled from render, hit-stop that freezes the
+ * world in whole sim steps. What state the app is in — title, run, results —
+ * belongs to Game (game.js); this file owns the renderer and the loop.
  */
 import './style.css';
 import * as THREE from 'three';
@@ -16,17 +17,18 @@ import { Fx } from './gfx/fx.js';
 import { createArena } from './gfx/arena.js';
 import { CameraRig } from './camera.js';
 import { Player } from './entities/player.js';
-import { Oni } from './entities/oni.js';
 import { Hud } from './hud.js';
 import { Debug } from './debug.js';
 import { PauseMenu } from './pause.js';
+import { Game, STATE } from './game.js';
+import { Profile } from './profile.js';
 
 // Build version, injected from package.json by vite.config.js
 const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 document.title = `SUMI — V${VERSION}`;
 {
   const el = document.getElementById('version');
-  if (el) el.textContent = `SUMI · V${VERSION} · Combat Feel`;
+  if (el) el.textContent = `SUMI · V${VERSION}`;
 }
 
 // --------------------------------------------------------------- renderer
@@ -52,56 +54,37 @@ container.appendChild(renderer.domElement);
 
 World.scene = scene;
 World.renderer = renderer;
+World.camRig = new CameraRig(camera);
+
+// Bootstrap rng/fx so nothing null-derefs before the first Run installs its
+// own. Run.install() replaces both; Run.dispose() tears its own down.
 World.rng = new Rng(getSeedFromUrl());
 World.fx = new Fx(scene, World.rng);
-World.camRig = new CameraRig(camera);
 
 const arena = createArena(scene);
 World.splatSurfaces = arena.splatSurfaces;
-
 World.player = new Player(scene);
+
 const hud = new Hud();
+const pauseMenu = new PauseMenu();
 
-let respawnTimer = 0;
-let spawnTarget = TUNING.spawn.baseCount;
-
-function spawnOni(count = 1) {
-  for (let i = 0; i < count; i++) {
-    const a = World.rng.range(0, Math.PI * 2);
-    const r = TUNING.spawn.ringRadius + World.rng.range(0, TUNING.spawn.ringJitter);
-    const e = new Oni(scene, Math.cos(a) * r, Math.sin(a) * r);
-    World.enemies.push(e);
-  }
-}
-
-function killAll() {
-  for (const e of World.enemies) if (!e.dead) e.die();
-}
-
-function resetArena() {
-  for (const e of World.enemies) e.dispose();
-  World.enemies.length = 0;
-  World.fx.clear();
-  World.lockTarget = null;
-  World.player.position.set(0, 0, 6);
-  World.player.vel.set(0, 0, 0);
-  World.player.hp = TUNING.player.maxHp;
-  World.player.state = 'free';
-  World.reset();
-  spawnTarget = TUNING.spawn.baseCount;
-  spawnOni(spawnTarget);
-}
-
-spawnOni(spawnTarget);
+const game = new Game({
+  scene, player: World.player, camRig: World.camRig,
+  pauseMenu, hud, version: VERSION,
+});
+pauseMenu.game = game;
 
 const debug = new Debug(scene, {
-  spawn: (n) => { spawnTarget = Math.max(spawnTarget, World.enemies.filter((e) => !e.dead).length + n); spawnOni(n); },
-  killAll,
-  reset: resetArena,
+  spawn: (n) => {
+    const run = World.run;
+    if (!run) return;
+    for (let i = 0; i < n; i++) run.spawnRing('oni', TUNING.spawn.ringRadius, TUNING.spawn.ringJitter);
+    run.kataTarget = Math.max(run.kataTarget, run.aliveCount());
+  },
+  killAll: () => { for (const e of World.enemies) if (!e.dead) e.die(); },
+  reset: () => game.restart(),
   renderInfo: () => renderer.info.render,
 });
-
-const pauseMenu = new PauseMenu();
 
 Input.init();
 
@@ -124,9 +107,6 @@ window.addEventListener('keydown', armAudio, { once: false });
 const STEP = 1 / TUNING.sim.hz;
 
 function simStep(dt) {
-  World.step++;
-  World.time += dt;
-
   Input.step(dt);
 
   World.player.update(dt);
@@ -143,17 +123,6 @@ function simStep(dt) {
     }
   }
 
-  const alive = World.enemies.filter((e) => !e.dead).length;
-  if (alive < spawnTarget) {
-    respawnTimer += dt;
-    if (respawnTimer >= TUNING.spawn.respawnDelay) {
-      respawnTimer = 0;
-      spawnOni(1);
-    }
-  } else {
-    respawnTimer = 0;
-  }
-
   World.fx.update(dt);
   World.camRig.update(dt, World.player);
 
@@ -165,6 +134,9 @@ function simStep(dt) {
       World.comboTimer = 0;
     }
   }
+
+  // waves, record and score — everything that belongs to the run
+  game.simStep(dt);
 }
 
 // ----------------------------------------------------------------- loop
@@ -184,16 +156,15 @@ function frame(now) {
     Input.debugToggleRequested = false;
     debug.toggle();
   }
-  if (Input.pauseToggleRequested) {
-    Input.pauseToggleRequested = false;
-    pauseMenu.toggle();
-  }
 
   Input.poll();
 
-  // paused: keep rendering, run no sim, and don't bank time to burn on resume
-  if (World.paused) accumulator = 0;
+  // Game decides whether the sim advances this frame (RUN only).
+  const simRunning = game.update(realDt);
+
+  if (!simRunning) accumulator = 0;
   else accumulator += realDt;
+
   let steps = 0;
   const maxSteps = TUNING.sim.maxStepsPerFrame;
 
@@ -215,9 +186,7 @@ function frame(now) {
   for (const e of World.enemies) e.applyInterpolation(alpha);
   World.camRig.apply(alpha, now / 1000);
 
-  if (World.paused) pauseMenu.update(realDt);
-
-  hud.update(camera);
+  hud.update(camera, game);
   World.debug.simStepsLastFrame = steps;
   debug.update(STEP, realDt);
 
@@ -231,14 +200,15 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+game.boot();
 requestAnimationFrame(frame);
 
 // expose for console poking during tuning sessions and for the headless
 // harness used to produce gate evidence in REPORT.md
 window.SUMI = {
   VERSION,
-  World, TUNING, Input, Audio, scene, camera, renderer, pauseMenu,
-  spawnOni, killAll, resetArena, simStep, STEP,
+  World, TUNING, Input, Audio, scene, camera, renderer,
+  game, pauseMenu, hud, Profile, STATE, simStep, STEP,
 
   /** Dev: bounce every procedural sound to WAV via the local file sink. */
   async exportAudio(sink) {

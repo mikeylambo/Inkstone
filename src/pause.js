@@ -11,9 +11,14 @@ export class PauseMenu {
     this.el = document.getElementById('pause-menu');
     this.body = document.getElementById('pause-body');
     this.editor = null;
+    this.game = null;          // set by Game once it exists
 
     const resume = document.getElementById('pause-resume');
     if (resume) resume.onclick = () => this.close();
+    const restart = document.getElementById('pause-restart');
+    if (restart) restart.onclick = () => { this.close(); this.game?.restart(); };
+    const abandon = document.getElementById('pause-abandon');
+    if (abandon) abandon.onclick = () => { this.game?.abandon(); };
     // clicking the backdrop resumes; clicking the panel must not
     this.el.addEventListener('mousedown', (e) => {
       if (e.target === this.el) this.close();

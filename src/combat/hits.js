@@ -123,6 +123,7 @@ export function applyEnemyHit(enemy, atk, dir, hitPoint, opts = {}) {
   if (atk.zoom) World.camRig.zoomPunch(atk.zoom);
   Audio.impact(opts.sound ?? atk.sound);
   World.addCombo(1);
+  World.run?.onHit(reaction, damage, hitPoint);
 
   if (enemy.hp <= 0) enemy.die();
   return true;
@@ -192,6 +193,7 @@ export function wallSplat(enemy, surface, normal, speed) {
   Audio.impact('wallSplat');
   World.banner('墨');
   World.addCombo(1);
+  World.run?.onWallSplat();
 
   if (enemy.hp <= 0) enemy.die();
 }

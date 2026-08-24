@@ -3,8 +3,12 @@
 A high-impact character-action scoresmith where every sword stroke writes on the
 battlefield, and what you've written changes how the fight plays.
 
-**Current phase: V0.2.1 — Restore Sword Feel / Fix Controls.**
+**Current phase: V0.2.5 — The Shell.**
 See [REPORT.md](REPORT.md) for gate results.
+
+The frame of the finished game is in place: title, mode select, waves, death,
+results with an exportable scroll print, persistence and a leaderboard
+interface. V0.3–V0.6 fill these slots rather than adding screens.
 
 ## Run it
 
@@ -70,6 +74,21 @@ The menu is fully controller-driven:
 | B | Close |
 | Start | Close |
 
+## Modes
+
+| Mode | Seed | Structure | Death |
+| --- | --- | --- | --- |
+| **DAILY SCROLL** | UTC date — same for everyone, rolls at midnight UTC | Escalating waves | Ends the run |
+| **FREE** | Random, or type your own to replay a fight exactly | Escalating waves | Ends the run |
+| **KATA** | Random | No waves. One oni, endlessly replaced | Respawns in place |
+
+KATA is the V0.2 build preserved as a practice mode — it plays exactly as it
+did, including respawn-in-place, and is not scored.
+
+Waves come from `TUNING.waves.table` (10 authored waves), then escalate: +1
+enemy and ×0.95 rest per wave, capped. Each wave ends with a breather that
+heals nothing.
+
 ## Layout
 
 ```
@@ -83,6 +102,15 @@ src/
   camera.js          Lock-on framing, trauma shake, FOV punch
   hud.js             Vitals, target, stroke counter
   debug.js           `~` overlay: state, hitboxes, embedded settings editor
+  game.js            App state machine: BOOT/TITLE/RUN_SETUP/RUN/PAUSE/DEATH/RESULTS
+  run.js             One attempt: rng, fx, enemies, waves, score, record
+  record.js          RunRecord — sim-stamped event log, the substrate for V0.3+
+  score.js           Scoring, and the V0.6 style-evaluator slot
+  profile.js         localStorage profile: bests per mode, export/import
+  board.js           Leaderboard interface — LocalBoard now, SupabaseBoard stub
+  screens.js         Title / mode select / death / results / settings screens
+  print.js           The scroll print and its PNG export
+  menunav.js         Pad-navigable menus
   settings.js        The settings editor — sliders/fields, rebinding, pad nav
   tuningdocs.js      Plain-language description for every parameter
   exportaudio.js     Dev: bounce the procedural audio to WAV

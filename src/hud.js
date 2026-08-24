@@ -1,6 +1,7 @@
 /**
- * HUD. Deliberately minimal for V0.2: vitals, lock-on target, stroke count.
- * The style evaluator and rank seals are V0.6 and are NOT built yet.
+ * Combat HUD. Visible in RUN and PAUSE only — the shell screens hide it via
+ * body[data-state]. Still deliberately minimal: vitals, lock-on target, stroke
+ * count, plus the run's mode/score and the wave banner.
  */
 import * as THREE from 'three';
 import { TUNING } from './tuning.js';
@@ -18,9 +19,13 @@ export class Hud {
     this.reticle = document.getElementById('reticle');
     this.combo = document.getElementById('combo-count');
     this.lockState = document.getElementById('lock-state');
+    this.runMode = document.getElementById('run-mode');
+    this.runScore = document.getElementById('run-score');
+    this.waveBanner = document.getElementById('wave-banner');
+    this.shownBanner = null;
   }
 
-  update(camera) {
+  update(camera, game) {
     const p = World.player;
     if (!p) return;
 
@@ -31,6 +36,20 @@ export class Hud {
     this.combo.textContent = `${World.combo} STROKE${World.combo === 1 ? '' : 'S'}`;
     this.lockState.textContent = World.lockTarget ? 'LOCKED' : 'FREE';
 
+    // --- run readouts ---
+    const run = World.run;
+    if (run) {
+      this.runMode.textContent = run.usesWaves
+        ? `${run.def.label} · WAVE ${Math.max(1, run.waveNumber)}`
+        : run.def.label;
+      this.runScore.textContent = run.mode === 'kata' ? '—' : String(run.score.value);
+      this.showWaveBanner(run.banner);
+    } else {
+      this.runMode.textContent = '—';
+      this.runScore.textContent = '0';
+    }
+
+    // --- lock-on target ---
     const t = World.lockTarget;
     if (t && !t.dead) {
       this.targetInfo.classList.remove('hidden');
@@ -52,6 +71,21 @@ export class Hud {
     } else {
       this.targetInfo.classList.add('hidden');
       this.reticle.style.opacity = '0';
+    }
+  }
+
+  /** Fire the kanji wave banner once per wave, not once per frame. */
+  showWaveBanner(banner) {
+    if (!this.waveBanner) return;
+    const text = banner ? banner.text : null;
+    if (text && text !== this.shownBanner) {
+      this.shownBanner = text;
+      this.waveBanner.textContent = text;
+      this.waveBanner.classList.remove('show');
+      void this.waveBanner.offsetWidth;
+      this.waveBanner.classList.add('show');
+    } else if (!text) {
+      this.shownBanner = null;
     }
   }
 }

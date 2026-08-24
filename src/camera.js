@@ -62,6 +62,38 @@ export class CameraRig {
     }
   }
 
+  /**
+   * Snap the rig to a fresh run's opening framing.
+   *
+   * The rig outlives a Run, and screenYaw feeds the movement basis — so
+   * without this a new run inherits the last one's camera angle, the player's
+   * "forward" means something different on frame one, and two runs with the
+   * same seed and inputs diverge. It also just looks wrong to drift in from
+   * wherever the previous run ended.
+   */
+  resetTo(player) {
+    const C = TUNING.camera;
+    this.yaw = player.facing;
+    this.screenYaw = player.facing;
+
+    _look.copy(player.position);
+    _look.y = C.freeLookHeight;
+    _fwd.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    this.pos.copy(_look).addScaledVector(_fwd, -C.freeDistance);
+    this.pos.y = _look.y + C.freeHeight;
+    this.look.copy(_look);
+    this.prevPos.copy(this.pos);
+    this.prevLook.copy(this.look);
+
+    this.trauma = 0;
+    this.kick.set(0, 0, 0);
+    this.fovOffset = 0;
+    this.fovVel = 0;
+    this.pushIn = 0;
+    this.pushInTarget = 0;
+    this.pushInRate = 0;
+  }
+
   /** Drive the push-in toward `target` metres over `seconds`. */
   pushTo(target, seconds) {
     const C = TUNING.camera;

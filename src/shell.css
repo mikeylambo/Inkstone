@@ -1,0 +1,208 @@
+/* ================= SHELL: per-state visibility ================= */
+/* The combat HUD belongs to RUN and PAUSE only. */
+body:not([data-state="RUN"]):not([data-state="PAUSE"]) #hud { display: none; }
+
+/* ================= SHELL: screens ================= */
+.screen {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(220, 211, 190, 0.90);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+  animation: screenIn 180ms ease-out;   /* Katana ZERO rule: nothing over 300ms */
+}
+.screen.hidden { display: none !important; }
+@keyframes screenIn { from { opacity: 0; } to { opacity: 1; } }
+
+.screen-panel {
+  width: min(560px, 92vw); max-height: 90vh; overflow-y: auto;
+  background: rgba(244, 238, 225, 0.97);
+  border: 2px solid var(--sumi); border-radius: 5px;
+  box-shadow: 6px 6px 0 rgba(28, 25, 23, 0.45);
+  padding: 26px 28px 22px;
+}
+.screen-panel.wide { width: min(1080px, 95vw); }
+
+.screen-head {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Shippori Mincho', serif; font-weight: 800;
+  font-size: 15px; letter-spacing: 0.22em; color: #7c2d12;
+  margin: 0 0 16px; text-transform: uppercase;
+}
+.screen-head .kanji { font-size: 26px; color: var(--vermilion); }
+
+/* --- title --- */
+.logo-wrap { text-align: center; margin-bottom: 24px; }
+.logo-kanji {
+  font-family: 'Yuji Syuku', serif; font-size: 74px; line-height: 1;
+  color: var(--sumi); text-shadow: 3px 3px 0 rgba(185,28,28,0.20);
+}
+.logo-text {
+  font-family: 'Shippori Mincho', serif; font-weight: 800;
+  font-size: 30px; letter-spacing: 0.42em; margin-top: 6px; color: var(--sumi);
+}
+.logo-sub {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  letter-spacing: 0.16em; color: var(--wash); margin-top: 8px;
+}
+
+/* --- menu buttons --- */
+.menu-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.menu-btn {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  font-family: 'Shippori Mincho', serif; font-weight: 800;
+  font-size: 15px; letter-spacing: 0.10em; color: var(--sumi);
+  background: #e5dcc6; border: 2px solid var(--sumi); border-radius: 4px;
+  padding: 11px 14px;
+  transition: transform 0.06s ease, background 0.12s ease;
+}
+.menu-btn:hover { background: #efe7d4; }
+.menu-btn:focus {
+  outline: none; background: var(--sumi); color: var(--paper-light);
+  transform: translateX(4px);
+}
+.menu-btn:focus .menu-sub { color: #cbc0a9; }
+.menu-btn:focus .menu-kanji { color: var(--paper-light); }
+.menu-kanji {
+  font-family: 'Yuji Syuku', serif; font-size: 22px;
+  color: var(--vermilion); margin-right: 10px; vertical-align: -2px;
+}
+.menu-sub {
+  display: block; font-family: 'IBM Plex Mono', monospace; font-weight: 400;
+  font-size: 10px; letter-spacing: 0.04em; color: var(--wash); margin-top: 4px;
+  text-transform: none;
+}
+.title-foot, .setup-foot {
+  margin-top: 16px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: 0.1em; color: var(--wash); text-align: center;
+}
+.seed-row { margin-top: 12px; }
+.seed-input {
+  width: 100%; background: #e5dcc6; border: 1px solid var(--wash);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  padding: 7px 9px; border-radius: 3px; color: var(--sumi);
+}
+
+/* --- settings screen: dark editor on the parchment panel --- */
+#screen-settings .settings-body {
+  max-height: 56vh; overflow-y: auto; margin-bottom: 14px;
+  background: rgba(28,25,23,0.95); border: 1px solid var(--sumi);
+  border-radius: 4px; padding: 10px 12px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #e7e5e4;
+}
+#screen-settings .settings-body h2 {
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: #fca5a5; margin: 12px 0 5px; border-bottom: 1px solid #57534e; padding-bottom: 3px;
+}
+#screen-settings .settings-body h2:first-child { margin-top: 0; }
+#screen-settings .settings-body .row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+#screen-settings .settings-body .row span:last-child { color: #93c5fd; }
+#screen-settings .settings-body summary { cursor: pointer; color: #a8a29e; padding: 3px 0; }
+#screen-settings .settings-body .tune {
+  display: grid; grid-template-columns: 1fr 58px; gap: 8px;
+  align-items: center; padding: 2px 0 2px 10px;
+}
+#screen-settings .settings-body .tune.tune-slider { grid-template-columns: 1fr 140px 58px; }
+#screen-settings .settings-body .tune label { color: #d6d3d1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-settings .settings-body input[type="number"],
+#screen-settings .settings-body input[type="text"],
+#screen-settings .settings-body input[type="search"] {
+  width: 100%; background: #292524; color: #fcd34d; border: 1px solid #57534e;
+  font-family: inherit; font-size: 11px; padding: 2px 4px; border-radius: 2px;
+}
+#screen-settings .settings-body button {
+  background: #7f1d1d; color: #fef2f2; border: 1px solid #b91c1c;
+  font-family: inherit; font-size: 11px; padding: 4px 8px; margin: 2px 4px 2px 0;
+  border-radius: 3px; cursor: pointer;
+}
+#screen-settings .settings-body .bindrow { cursor: pointer; }
+
+/* --- death --- */
+#screen-death {
+  position: fixed; inset: 0; z-index: 55;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(28, 25, 23, 0.55);
+  pointer-events: none;
+}
+#screen-death.hidden { display: none !important; }
+.death-kanji {
+  font-family: 'Yuji Syuku', serif; font-size: 190px; line-height: 1;
+  color: var(--paper-light);
+  text-shadow: 0 0 40px rgba(28,25,23,0.9);
+  transform: scale(2.2) rotate(-6deg); opacity: 0;
+}
+#screen-death.death-play .death-kanji { animation: deathStamp 1.5s ease-out forwards; }
+@keyframes deathStamp {
+  0%   { transform: scale(2.4) rotate(-8deg); opacity: 0; }
+  18%  { transform: scale(1.0) rotate(2deg); opacity: 1; }
+  30%  { transform: scale(1.04) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.10) rotate(0deg); opacity: 0.92; }
+}
+
+/* --- results --- */
+.results-grid { display: grid; grid-template-columns: 1fr 580px; gap: 26px; align-items: start; }
+@media (max-width: 1000px) { .results-grid { grid-template-columns: 1fr; } }
+.results-seal { text-align: center; margin-bottom: 14px; }
+.seal-kanji {
+  font-family: 'Yuji Syuku', serif; font-size: 72px; line-height: 1;
+  animation: stamp 0.6s ease-out forwards;
+}
+.seal-title {
+  font-family: 'Shippori Mincho', serif; font-weight: 800;
+  font-size: 12px; letter-spacing: 0.2em; margin-top: 2px;
+}
+.results-stats { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+.rrow {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 3px 0; border-bottom: 1px dotted rgba(87,83,78,0.35);
+}
+.rrow span:first-child { color: var(--wash); letter-spacing: 0.08em; }
+.rrow span:last-child { color: var(--sumi); font-weight: 600; }
+.rrow.big { border-bottom: none; margin-top: 6px; }
+.rrow.big span:last-child { font-size: 22px; color: var(--vermilion); }
+.rrow.me span { color: var(--vermilion); }
+.results-pb {
+  margin: 10px 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  color: var(--wash); letter-spacing: 0.06em;
+}
+.results-pb.best { color: var(--vermilion); font-weight: 600; }
+.results-board { margin: 10px 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+.results-board h3 {
+  font-size: 10px; letter-spacing: 0.18em; color: #7c2d12;
+  margin: 0 0 4px; text-transform: uppercase;
+}
+.print-title {
+  font-family: 'Shippori Mincho', serif; font-weight: 800;
+  font-size: 12px; letter-spacing: 0.3em; color: var(--wash);
+  text-align: center; margin-bottom: 8px;
+}
+.print-frame {
+  border: 2px solid var(--sumi); background: var(--paper-light);
+  padding: 10px; box-shadow: 4px 4px 0 rgba(28,25,23,0.35);
+}
+.print-canvas { display: block; width: 100%; height: auto; }
+
+/* --- wave banner --- */
+#wave-banner {
+  position: absolute; left: 50%; top: 20%; transform: translateX(-50%);
+  font-family: 'Yuji Syuku', serif; font-size: 96px; color: var(--sumi);
+  text-shadow: 3px 3px 0 rgba(244,238,225,0.8);
+  opacity: 0; pointer-events: none;
+}
+#wave-banner.show { animation: waveIn 1.7s ease-out forwards; }
+@keyframes waveIn {
+  0%   { transform: translateX(-50%) scale(1.5); opacity: 0; }
+  14%  { transform: translateX(-50%) scale(1.0); opacity: 1; }
+  70%  { transform: translateX(-50%) scale(1.0); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1.02); opacity: 0; }
+}
+
+/* --- pause additions --- */
+#pause-head button { margin-left: 6px; }
+#pause-restart, #pause-abandon {
+  background: #292524; color: #e7e5e4; border: 1px solid #57534e;
+  font-family: 'Shippori Mincho', serif; font-weight: 800;
+  letter-spacing: 0.1em; font-size: 11px; padding: 7px 12px;
+  border-radius: 3px; cursor: pointer;
+}
+#pause-restart:hover, #pause-abandon:hover { background: #44403c; }

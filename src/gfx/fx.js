@@ -303,6 +303,18 @@ export class Fx {
     this.inkPools.length = 0;
   }
 
+  /**
+   * Full teardown. A new Fx is built per run, so the pooled meshes have to
+   * leave the scene or every restart leaks a few hundred invisible boxes.
+   */
+  dispose() {
+    this.clear();
+    for (const m of this.pool) this.scene.remove(m);
+    this.pool.length = 0;
+    for (const mat of Object.values(this.sparkMats)) mat.dispose();
+    this.petalMat.dispose();
+  }
+
   get liveCount() {
     return this.particles.length + this.rings.length + this.decals.length + this.inkPools.length;
   }

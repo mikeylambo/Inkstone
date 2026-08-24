@@ -9,14 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Shippori+Mincho:wght@700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
 </head>
-<body>
+<body data-state="BOOT">
   <div id="canvas-container"></div>
 
   <div class="paper-overlay"></div>
   <div class="ink-wash-vignette"></div>
 
+  <!-- ===================== RUN HUD (RUN + PAUSE only) ===================== -->
   <div id="hud">
-    <!-- top left: player vitals -->
     <div class="panel" id="vitals">
       <div class="panel-title">
         <span class="kanji">墨</span>
@@ -28,11 +28,14 @@
         <span id="lock-state">FREE</span>
         <span id="combo-count">0 STROKES</span>
       </div>
+      <div class="panel-sub">
+        <span id="run-mode">—</span>
+        <span id="run-score">0</span>
+      </div>
     </div>
 
     <div id="version">SUMI</div>
 
-    <!-- top right: target -->
     <div class="panel hidden" id="target-info">
       <div class="panel-title">
         <span class="kanji">鬼</span>
@@ -42,10 +45,8 @@
       <div class="bar"><div id="target-hp-bar" class="bar-fill enemy"></div></div>
     </div>
 
-    <!-- reticle -->
     <div id="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
-    <!-- bottom: controls -->
     <div class="panel" id="controls">
       <div><b>WASD</b> Move</div>
       <div><b class="c-ink">LMB / J</b> Light</div>
@@ -55,20 +56,81 @@
       <div><b class="c-green">Shift</b> Dash</div>
       <div><b class="c-blue">F</b> Parry</div>
       <div><b class="c-purple">Q / Tab</b> Lock-On (toggle)</div>
-      <div><b>Esc</b> Pause &amp; settings</div>
+      <div><b>Esc</b> Pause</div>
       <div><b>~</b> Debug</div>
     </div>
 
-    <button id="start-btn">始 &nbsp;BEGIN · ENABLE AUDIO</button>
-
     <div id="hit-banner"></div>
+    <div id="wave-banner"></div>
   </div>
 
+  <button id="start-btn">始 &nbsp;BEGIN · ENABLE AUDIO</button>
+
+  <!-- ============================== TITLE ============================== -->
+  <div id="screen-title" class="screen hidden">
+    <div class="screen-panel">
+      <div class="logo-wrap">
+        <div class="logo-kanji">墨</div>
+        <div class="logo-text">SUMI</div>
+        <div class="logo-sub">every stroke writes on the battlefield</div>
+      </div>
+      <div class="menu-list"></div>
+      <div class="title-foot"></div>
+    </div>
+  </div>
+
+  <!-- ============================ RUN_SETUP ============================ -->
+  <div id="screen-setup" class="screen hidden">
+    <div class="screen-panel">
+      <h2 class="screen-head"><span class="kanji">巻</span> MODES</h2>
+      <div class="menu-list"></div>
+      <div class="seed-row"></div>
+      <div class="setup-foot"></div>
+    </div>
+  </div>
+
+  <!-- ============================= SETTINGS ============================= -->
+  <div id="screen-settings" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">調</span> SETTINGS</h2>
+      <div class="settings-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================== DEATH ============================== -->
+  <div id="screen-death" class="hidden">
+    <div class="death-kanji">討</div>
+  </div>
+
+  <!-- ============================= RESULTS ============================= -->
+  <div id="screen-results" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">記</span> RESULTS</h2>
+      <div class="results-grid">
+        <div class="results-left">
+          <div class="results-seal"></div>
+          <div class="results-stats"></div>
+          <div class="results-pb"></div>
+          <div class="results-board"></div>
+          <div class="menu-list"></div>
+        </div>
+        <div class="results-right">
+          <div class="print-title">SCROLL</div>
+          <div class="print-frame"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ PAUSE MENU ============================ -->
   <div id="pause-menu" class="hidden">
     <div id="pause-panel">
       <div id="pause-head">
         <span class="kanji">休</span>
-        <span id="pause-title">PAUSED — SETTINGS</span>
+        <span id="pause-title">PAUSED</span>
+        <button id="pause-restart">RESTART</button>
+        <button id="pause-abandon">ABANDON</button>
         <button id="pause-resume">RESUME</button>
       </div>
       <div id="pause-body"></div>

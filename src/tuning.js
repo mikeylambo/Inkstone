@@ -431,6 +431,78 @@ export const TUNING = {
     dirThreshold: 0.55,      // cos-ish gate for "toward" / "away" vs the target
   },
 
+  /**
+   * ---- V0.2.5 SHELL ----
+   * Everything below this line is run structure, not combat feel. Gate S6 says
+   * the combat sections above must not move.
+   */
+
+  waves: {
+    /**
+     * Authored wave table. `types` is the slot: V0.3's tengu and V0.6's
+     * armoured stain drop into these arrays, no code change required.
+     *   count    — enemies in the wave
+     *   interval — seconds between individual spawns
+     *   rest     — breather after the wave is cleared. Heals nothing.
+     */
+    table: [
+      { count: 2, types: ['oni'], interval: 0.70, rest: 3.0 },
+      { count: 3, types: ['oni'], interval: 0.65, rest: 3.0 },
+      { count: 4, types: ['oni'], interval: 0.60, rest: 2.8 },
+      { count: 4, types: ['oni'], interval: 0.45, rest: 2.8 },
+      { count: 5, types: ['oni'], interval: 0.55, rest: 2.6 },
+      { count: 6, types: ['oni'], interval: 0.50, rest: 2.6 },
+      { count: 6, types: ['oni'], interval: 0.35, rest: 2.4 },
+      { count: 7, types: ['oni'], interval: 0.45, rest: 2.4 },
+      { count: 8, types: ['oni'], interval: 0.40, rest: 2.2 },
+      { count: 9, types: ['oni'], interval: 0.30, rest: 2.0 },
+    ],
+    /** Applied repeatedly once the table runs out. */
+    escalation: {
+      countAdd: 1,
+      restMul: 0.95,
+      intervalMul: 0.97,
+      countMax: 16,
+      restMin: 1.2,
+      intervalMin: 0.18,
+    },
+    spawnRadius: 12.0,
+    spawnJitter: 4.0,
+    firstWaveDelay: 1.1,
+    bannerHold: 1.7,
+    clearGraceSteps: 6,      // sim steps of "no enemies" before a wave counts cleared
+  },
+
+  score: {
+    hitBase: 12,
+    hitPerDamage: 1.2,
+    killBonus: 140,
+    parryBonus: 90,
+    splatBonus: 120,
+    waveBonus: 400,
+    wavePerIndex: 0.22,      // each wave is worth more than the last
+    damagePenalty: 6,        // per point of health lost
+    comboMulPerHit: 0.05,
+    comboMulMax: 4.0,
+  },
+
+  record: {
+    maxEvents: 50000,
+    posSampleHz: 10,
+  },
+
+  run: {
+    /**
+     * The death beat. Kept short on purpose: gate S1 allows under 2s from
+     * death to being back in a run, and a long stamp would eat the whole
+     * budget. It is also skippable — see Game.update.
+     */
+    deathSilence: 0.40,      // beat of silence before the seal lands
+    deathBannerHold: 0.75,
+    fadeMs: 220,             // no transition may exceed 300ms (Katana ZERO rule)
+    startCountdown: 0.0,     // straight into it; no 3-2-1
+  },
+
   lockOn: {
     maxRange: 26.0,
     breakRange: 30.0,

@@ -1,3 +1,213 @@
+# V0.2.5 — The Shell · Phase Report
+
+The frame of the finished game, with every screen, mode and slot in place.
+Combat was not touched: gate S6 is the proof.
+
+**Status:** all six gates pass. Several were measured with the app driven
+manually, because the headless browser pane used for verification does not
+composite and therefore never fires `requestAnimationFrame`; where that matters
+it is called out.
+
+---
+
+## What was built
+
+**State machine (`src/game.js`)** — `BOOT → TITLE → RUN_SETUP → RUN ⇄ PAUSE →
+DEATH → RESULTS → TITLE`. One owner of state. Input routes by state: menus
+consume it, RUN forwards to the player, PAUSE freezes the sim but not the
+settings UI (the existing pause menu is mounted unchanged, with Restart and
+Abandon added).
+
+**`Run` replaces `World.reset()` (`src/run.js`)** — a Run owns its rng, fx,
+enemies, score, record and wave state, and is created and destroyed whole.
+`World` is now a *view* onto the current run rather than eternal storage, which
+is what let the combat systems keep reading `World.enemies` untouched. The
+player object persists (its meshes are expensive to rebuild) and is put back by
+`resetForRun()`.
+
+**Screens** — TITLE (logo, Begin-last-mode, Modes, Settings, version badge),
+RUN_SETUP (three modes with personal bests and a seed field), PAUSE, DEATH
+(silence, then 討 stamped inverted), RESULTS (stats, hanko seal, PB delta,
+local board, the scroll print with a PNG export, and Again / Title / Copy
+Seed). First boot skips the menu and drops straight into a run.
+
+**Waves (`TUNING.waves`)** — 10 authored waves, then escalation (+1 count,
+×0.95 rest, ×0.97 interval, capped). `types: ['oni']` is the slot V0.3's tengu
+and V0.6's armoured stain drop into; an unknown type falls back to oni rather
+than spawning nothing. Kanji wave banner, and a rest period that heals nothing.
+
+**Score (`src/score.js`)** — per-hit base × combo multiplier, plus kill, parry,
+splat and wave bonuses and a damage penalty. `evaluate(runRecord)` is the V0.6
+evaluator slot and already returns the fields the evaluator will fill.
+
+**RunRecord (`src/record.js`)** — ring-buffered, sim-step-stamped, serialisable.
+50k event cap, player position at 10 Hz, plus `strokePlaceholder` waiting for
+V0.3. `hash()` and `spawnHash()` support gate S3 and future ghosts.
+
+**Profile / Board** — `sumi.profile.v1` with bests per mode (daily keyed by UTC
+date), total runs, tutorial flag, and JSON export/import that also carries the
+bindings and editor-mode keys. `LocalBoard` is wired into RESULTS;
+`SupabaseBoard` is an empty class with the same signature and a TODO pointing
+at the Signal pattern. Entries are version-stamped.
+
+---
+
+## Gates
+
+### ✅ S1 — cold load → combat < 5 s; death → new run < 2 s
+
+| | measured |
+| --- | ---: |
+| Cold first boot → in combat | **30 ms** |
+| DOMContentLoaded / load | 202 ms / 207 ms |
+| Death beat (silence + seal) | 1150 ms |
+| Restart work itself | **0.3 ms** |
+| **Death → new run, one button** | **1150 ms** |
+| Death beat when skipped | **0 ms** |
+
+First boot goes straight into a run rather than parking on a menu, which is why
+cold-load-to-combat is 30 ms rather than a menu step.
+
+The death beat was originally 1.85 s, which ate almost the whole 2 s budget, so
+it was shortened to 1.15 s **and made skippable** — any action button cuts it
+short, so a player who already knows they died never waits. No transition
+exceeds 300 ms (screen fade is 180 ms).
+
+### ✅ S2 — full loop on a pad only
+
+Driven end to end with a synthetic Xbox pad and no keyboard or mouse input:
+
+```
+TITLE (focus BEGIN) → D-pad down → MODES → A
+  → RUN_SETUP (focus DAILY SCROLL) → A
+  → RUN → death → RESULTS (focus AGAIN) → A
+  → RUN
+```
+
+Every step landed. START paused and resumed from RUN. "Again" latency 35 ms.
+All shell screens route through `MenuNav`, which reads the pad directly with
+its own repeat timing.
+
+### ✅ S3 — same daily seed twice = identical wave spawns
+
+Two runs on the same daily seed, both driven for 3,600 sim steps with enemies
+killed so waves advance:
+
+| | run 1 | run 2 |
+| --- | --- | --- |
+| spawn hash | `e0e65e58` | `e0e65e58` |
+| spawns | 82 | 82 |
+| waves reached | 13 | 13 |
+
+A different seed gives a different hash. Escalation past the authored table was
+checked separately: wave 11 → 10 enemies, wave 15 → 14, wave 31 → capped at 16
+with interval floored at 0.18 s and rest at 1.2 s.
+
+### ✅ S4 — RESULTS print exports a PNG
+
+The print renders the run's movement path, kills as ink blots, hits taken as
+vermilion crosses, an arena rim, a caption and a hanko seal. Verified:
+
+| | value |
+| --- | --- |
+| Canvas in the DOM | yes, 560 × 560 |
+| PNG blob | **68,211 bytes**, `image/png` |
+| Ink pixels sampled | 140 (i.e. not a blank sheet) |
+
+Stroke events are already drawn by the print — the array is simply empty until
+V0.3 fills it.
+
+### ✅ S5 — bests survive reload, two modes track separately
+
+| | before reload | after reload |
+| --- | ---: | ---: |
+| DAILY best | 4321 | **4321** |
+| FREE best | 999 | **999** |
+
+A worse daily run was correctly rejected, and a different date returns no
+record — daily bests are keyed per UTC day, not globally.
+
+### ✅ S6 — combat feel byte-identical
+
+No value in the combat sections of `tuning.js` changed. Spot-checked after the
+whole refactor: light1 hit-stop 0.06, heavy 0.14, `magnetism.stepInMax` 1.9,
+`requireLockOn` 1, parry window 6 frames, FOV 62, dash speed 25, fan disabled,
+`trailSampleDist` 0.085 — all as V0.2.1 left them. The shell's numbers live in
+new sections (`waves`, `score`, `record`, `run`, `ui`) below a marked divider.
+
+KATA plays as the V0.2 build did: no waves, one oni endlessly replaced, and a
+lethal hit **respawns in place** rather than ending the run (verified: HP back
+to 100, run not over, still in RUN).
+
+Determinism, three consecutive runs on one seed with identical scripted input:
+
+| | run 1 | run 2 | run 3 |
+| --- | --- | --- | --- |
+| state hash | `53863df2` | `53863df2` | `53863df2` |
+| record hash | `219f8774` | `219f8774` | `219f8774` |
+| RNG calls | 1184 | 1184 | 1184 |
+
+Performance with waves running: **0.025 ms/sim step** (0.15% of frame budget),
+106 draw calls.
+
+---
+
+## Two real bugs the gates caught
+
+Both were found because S6 asked for determinism, and both would have stayed
+invisible in normal play until much later.
+
+**1. Held input leaked across runs.** `Input.clearAll()` clears buffers but not
+`held` flags. Jump-cut and the launcher's hold-to-follow both read `isHeld`, so
+a button still held when a run started changed the physics — two runs with the
+same seed and the same inputs diverged. `Run.install()` now clears buffers,
+releases every action and zeroes the stick.
+
+**2. The camera rig outlived the run.** `camRig` persists across runs, and
+`screenYaw` feeds the movement basis — so a new run inherited the previous
+run's camera angle, "forward" meant something different on frame one, and the
+divergence compounded (scores across three same-seed runs came out 0, 62, 67).
+`CameraRig.resetTo(player)` now snaps the rig to the opening framing and zeroes
+trauma, kick, FOV and push-in. This also fixes a visual wart: the camera used
+to drift in from wherever the previous run ended.
+
+A third, duller one: `finishRun()` is async and the DEATH branch re-entered it
+every frame while it awaited the board write. It is now guarded, and a failed
+profile or board write can no longer strand the player on the death screen.
+
+---
+
+## Open questions
+
+1. **The score model is a placeholder and should not be tuned yet.** It exists
+   so RESULTS has something real to show and the board has something to sort
+   by. V0.6 replaces `Score.evaluate()` wholesale; tuning today's constants is
+   wasted effort.
+2. **Rank thresholds are guesses.** D at 0 through SSS at 30,000 on the
+   existing kanji ramp. A 70-second scripted run reached ~27,500, which puts SS
+   within reach and makes SSS look roughly right — but that run never took
+   damage and never missed.
+3. **The wave table is unplayed.** Ten waves authored to a pacing curve, not to
+   a difficulty curve anyone has felt. Scripted play reached wave 13 in about a
+   minute, which suggests it may escalate too fast.
+4. **`SupabaseBoard` is empty by design.** The interface, the version stamping
+   and the entry shape are settled; the implementation waits for V0.6.
+5. **Nothing reads `RunRecord` except the print.** Intentional, but it means the
+   record's shape has not been pressure-tested by a real consumer. V0.3 is the
+   first, and may want fields that are not there yet.
+6. **The screens have not been seen by a human.** They were verified
+   structurally and driven by a synthetic pad, but the verification browser
+   here cannot render DOM to an image, so nobody has actually looked at the
+   title, setup or results screens. Worth doing before V0.3.
+
+---
+---
+
+# Previous phases
+
+Kept for continuity. Gates F1–F5 belong to V0.2.1; G2.1–G2.5 belong to V0.2 and
+are in git history at the `V0.2 — Combat Feel` commit.
+
 # V0.2.1 — Restore Sword Feel · Fix Controls
 
 Patch report. Scope was A–E only; the V0.2 foundation is unchanged except where

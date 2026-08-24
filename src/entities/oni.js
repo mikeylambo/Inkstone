@@ -439,6 +439,7 @@ export class Oni {
     World.camRig.addTrauma(0.22);
     World.requestHitStop(0.08);
     Audio.impact('death');
+    World.run?.onKill(this.position);
     if (World.lockTarget === this) World.lockTarget = null;
   }
 

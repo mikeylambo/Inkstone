@@ -474,6 +474,7 @@ export class Player {
     this.ribbon.clear();
     World.camRig.pushTo(0, TUNING.camera.pushInMinRelease);
     Audio.dash();
+    World.run?.onJump(this.position);
     World.fx.inkBurst(this.position.clone().setY(0.15), 5, 'sumi', 4);
   }
 
@@ -520,6 +521,7 @@ export class Player {
     World.camRig.pushTo(TUNING.camera.attackPushIn, TUNING.camera.pushInAttackTime);
     Audio.whiff(def.whiffPitch);
 
+    World.run?.onAttackStart(key);
     World.debug.lastAttackKey = def.label;
     World.debug.stepInThisAttack = step.dist;
     World.debug.pressToStrokeMs = catchUp * 1000;
@@ -705,6 +707,7 @@ export class Player {
     this.ribbon.clear();
     World.camRig.pushTo(0, TUNING.camera.pushInMinRelease);
     Audio.dash();
+    World.run?.onDash(this.position);
     World.fx.inkBurst(this.position.clone().setY(0.4), 8, 'sumi', 5);
     World.camRig.addTrauma(TUNING.dash.shake);
   }
@@ -768,6 +771,7 @@ export class Player {
     Audio.impact('parry');
     World.banner('受');
     World.addCombo(1);
+    World.run?.onParry(this.position);
 
     this.parrySuccess = P.counterWindow;
     this.invuln = Math.max(this.invuln, 0.25);
@@ -800,14 +804,65 @@ export class Player {
     World.requestHitStop(0.07);
     World.camRig.addTrauma(0.4, dir);
     Audio.impact('playerHurt');
+    World.run?.onPlayerHurt(damage, this.position);
 
-    if (this.hp <= 0) this.respawn();
+    if (this.hp <= 0) {
+      // KATA respawns in place, as the V0.2 build did. Every other mode ends
+      // the run — a scored run cannot survive its own death.
+      if (World.run && !World.run.allowRespawn) World.run.onPlayerDeath();
+      else this.respawn();
+    }
   }
 
+  /** KATA only. */
   respawn() {
     this.hp = TUNING.player.maxHp;
     this.invuln = 1.5;
     World.banner('再');
+  }
+
+  /**
+   * Put the player back to a known state for a fresh run. The object persists
+   * across runs because its meshes and rig are expensive to rebuild.
+   */
+  resetForRun() {
+    const P = TUNING.player;
+    this.hp = P.maxHp;
+    this.position.set(0, 0, 6);
+    this.prevPosition.copy(this.position);
+    this.vel.set(0, 0, 0);
+    this.facing = Math.PI;
+    this.prevFacing = this.facing;
+    this.grounded = true;
+    this.state = 'free';
+    this.attack = null;
+    this.dive = null;
+    this.moving = false;
+    this.dashTimer = 0;
+    this.dashCooldown = 0;
+    this.airDashes = TUNING.dash.airDashesMax;
+    this.iframes = 0;
+    this.invuln = 0;
+    this.parryTimer = 0;
+    this.parryCooldown = 0;
+    this.parrySuccess = 0;
+    this.hurtTimer = 0;
+    this.landTimer = 0;
+    this.chainIndex = 0;
+    this.chainTimer = 0;
+    this.airChainIndex = 0;
+    this.airJumps = P.airJumpsMax;
+    this.coyoteTimer = 0;
+    this.jumpCutArmed = false;
+    this.lockHeldPrev = false;
+    this.basisLatched = false;
+    this.runPhase = 0;
+    this.runBlend = 0;
+    this.idlePhase = 0;
+    for (const r of this.ribbons) r.clear();
+    this.fan.clear();
+    this.mesh.position.copy(this.position);
+    this.mesh.rotation.y = this.facing;
   }
 
   stepHurt(dt) {

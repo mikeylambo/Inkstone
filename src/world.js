@@ -3,6 +3,13 @@
  * combat systems don't have to thread six arguments through every call.
  */
 export const World = {
+  /**
+   * The run currently in progress, or null outside RUN. Combat systems fire
+   * events at it null-safely; it owns rng/fx/enemies/score/record and swaps
+   * wholesale between runs. See run.js.
+   */
+  run: null,
+
   scene: null,
   renderer: null,
   camRig: null,
