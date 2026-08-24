@@ -53,11 +53,33 @@ export class Run {
     this.scene = cfg.scene;
     this.player = cfg.player;
 
+    /**
+     * Run configuration that is not the seed. `modifiers` is the reserved slot
+     * (Hades' Heat, Sifu's ageing): a modifier is recorded, shown on RESULTS
+     * and carried onto the leaderboard entry, so a score always says what
+     * ruleset produced it. Nothing defines a modifier yet — the plumbing is
+     * what V0.2.6 ships, and the multiplier is pinned at 1.
+     */
+    this.config = {
+      scroll: cfg.scroll || null,
+      difficulty: cfg.difficulty || TUNING.difficulty.current,
+      modifiers: Array.isArray(cfg.modifiers) ? cfg.modifiers.map((m) => ({ ...m })) : [],
+    };
+
     this.rng = new Rng(this.seed);
     this.fx = new Fx(cfg.scene, this.rng);
     this.enemies = [];
     this.record = new RunRecord();
     this.score = new Score();
+
+    this.record.meta = {
+      seed: this.seed, mode: this.mode, scroll: this.config.scroll,
+      day: this.day, version: cfg.version || null,
+      modifiers: this.config.modifiers,
+    };
+
+    /** Set when a run wants WAVE_CHOICE; null on every run today. */
+    this.pendingChoice = null;
 
     this.time = 0;
     this.step = 0;
@@ -141,22 +163,37 @@ export class Run {
     return this.spawnAt(kind, Math.cos(a) * r, Math.sin(a) * r);
   }
 
+  /** The active difficulty's multipliers. All 1 today, by design. */
+  get diff() {
+    return TUNING.difficulty[this.config.difficulty] || TUNING.difficulty.standard;
+  }
+
   /** Wave descriptor for an index, extending past the table by escalation. */
   waveAt(index) {
     const W = TUNING.waves;
     const table = W.table;
+    const D = this.diff;
+    let base;
     if (index < table.length) {
       const w = table[index];
-      return { count: w.count, types: w.types, interval: w.interval, rest: w.rest };
+      base = { count: w.count, types: w.types, interval: w.interval, rest: w.rest };
+    } else {
+      const last = table[table.length - 1];
+      const over = index - table.length + 1;
+      const E = W.escalation;
+      base = {
+        count: Math.min(E.countMax, last.count + E.countAdd * over),
+        types: last.types,
+        interval: Math.max(E.intervalMin, last.interval * Math.pow(E.intervalMul, over)),
+        rest: Math.max(E.restMin, last.rest * Math.pow(E.restMul, over)),
+      };
     }
-    const last = table[table.length - 1];
-    const over = index - table.length + 1;
-    const E = W.escalation;
+    // Difficulty acts on the wave table, not on HP or damage — a harder fight
+    // should be a different fight, not a longer one. At ×1 this is identity.
     return {
-      count: Math.min(E.countMax, last.count + E.countAdd * over),
-      types: last.types,
-      interval: Math.max(E.intervalMin, last.interval * Math.pow(E.intervalMul, over)),
-      rest: Math.max(E.restMin, last.rest * Math.pow(E.restMul, over)),
+      ...base,
+      count: Math.max(1, Math.round(base.count * D.waveCountMul)),
+      interval: base.interval * D.waveIntervalMul,
     };
   }
 
@@ -249,9 +286,19 @@ export class Run {
       case 'rest':
         // a breather, not a heal
         if (this.phaseTimer >= this.currentWave.rest) {
+          // Reserved (Hades). A run that has something to offer parks here and
+          // lets Game raise WAVE_CHOICE; nothing offers anything yet, so this
+          // is only reachable under frame.waveChoiceEnabled and every normal
+          // run falls straight through to the next wave.
+          const offers = this.offersFor(this.waveIndex + 1);
+          if (offers) { this.pendingChoice = offers; this.phase = 'choosing'; break; }
           this.phaseTimer = 0;
           this.startWave(this.waveIndex + 1);
         }
+        break;
+
+      case 'choosing':
+        // frozen until Game calls applyWaveChoice()
         break;
     }
   }
@@ -270,6 +317,30 @@ export class Run {
     }
   }
 
+  /**
+   * What this run offers before wave `index`, or null for "nothing to choose".
+   * The only source today is the dev flag, which returns a fixed placeholder
+   * set so the shell can be walked. V0.4 replaces the body, not the signature.
+   */
+  offersFor(index) {
+    if (!TUNING.frame.waveChoiceEnabled) return null;
+    if (index <= 0) return null;
+    return [
+      { id: 'dev-a', label: 'RESERVED', kanji: '一', line: 'A glyph offer lands here in V0.4.' },
+      { id: 'dev-b', label: 'RESERVED', kanji: '二', line: 'A pigment offer lands here in V0.5.' },
+      { id: 'dev-c', label: 'RESERVED', kanji: '三', line: 'A run modifier lands here in V0.4.' },
+    ];
+  }
+
+  /** Resolve a WAVE_CHOICE and get the run moving again. */
+  applyWaveChoice(offer) {
+    this.pendingChoice = null;
+    if (offer && offer.modifier) this.config.modifiers.push({ ...offer.modifier });
+    this.phaseTimer = 0;
+    this.phase = 'rest';
+    this.startWave(this.waveIndex + 1);
+  }
+
   // ------------------------------------------------- events from combat code
 
   onAttackStart(key) { this.record.attackStart(this.step, key); }
@@ -277,7 +348,7 @@ export class Run {
   onJump(pos) { this.record.jump(this.step, pos); }
 
   onHit(reaction, damage, pos) {
-    this.record.hit(this.step, reaction, damage, pos);
+    this.record.hit(this.step, reaction, damage, pos, World.combo);
     this.score.onHit(damage, World.combo);
   }
 
@@ -320,6 +391,11 @@ export class Run {
       ...ev,
       mode: this.mode,
       modeLabel: this.def.label,
+      scroll: this.config.scroll,
+      scrollLabel: this.config.scrollLabel || null,
+      difficulty: this.config.difficulty,
+      modifiers: this.config.modifiers,
+      waveStats: this.usesWaves ? this.record.waveStats() : [],
       seed: this.seed,
       day: this.day,
       wave: this.usesWaves ? Math.max(1, this.waveNumber) : 0,

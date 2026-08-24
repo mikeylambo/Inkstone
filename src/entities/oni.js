@@ -468,9 +468,12 @@ export class Oni {
     this.bob += dt;
 
     // hit flash
-    const flashing = this.flashTimer > 0;
+    // Flash reduction scales the visible intensity rather than the timer, so
+    // the sim-side flashTimer (and therefore the run hash) is untouched.
+    const fs = TUNING.access.flashScale;
+    const flashing = this.flashTimer > 0 && fs > 0;
     this.bodyMat.emissive.setHex(flashing ? TUNING.reactions.hitFlashColor : 0x000000);
-    this.bodyMat.emissiveIntensity = flashing ? 1.0 : 0.0;
+    this.bodyMat.emissiveIntensity = flashing ? fs : 0.0;
 
     // squash & stretch — the visual half of a hit reaction
     const sq = this.squash;
@@ -488,20 +491,27 @@ export class Oni {
 
     // arm / club
     let armTarget = 0.5;
+    // High-contrast tells swap the horn palette for one that separates on
+    // value as well as hue, so the windup reads without relying on red. This
+    // is presentation only — it runs in applyInterpolation, never in the sim,
+    // so it cannot move a hash.
+    const hc = TUNING.access.highContrast === 1;
+    const restHorn = hc ? 0x1c1917 : PALETTE.vermilion;
+    const tellHorn = hc ? 0xfacc15 : 0xfca5a5;
     if (this.state === 'windup') {
       const u = Math.min(1, this.stateTimer / O.windup);
       armTarget = 0.5 - 2.9 * (1 - Math.pow(1 - u, 2));      // raise, slow and readable
       this.body.scale.multiplyScalar(1 + 0.12 * u);
-      this.hornMat.color.setHex(u > 0.5 ? 0xfca5a5 : PALETTE.vermilion);
+      this.hornMat.color.setHex(u > 0.5 ? tellHorn : restHorn);
     } else if (this.state === 'swing') {
       const u = Math.min(1, this.stateTimer / O.active);
       armTarget = -2.4 + 3.6 * (1 - Math.pow(1 - u, 4));
-      this.hornMat.color.setHex(PALETTE.vermilion);
+      this.hornMat.color.setHex(hc ? 0xf97316 : PALETTE.vermilion);
     } else if (this.state === 'recover') {
       armTarget = 1.2;
-      this.hornMat.color.setHex(PALETTE.vermilion);
+      this.hornMat.color.setHex(restHorn);
     } else {
-      this.hornMat.color.setHex(PALETTE.vermilion);
+      this.hornMat.color.setHex(restHorn);
     }
     this.armPivot.rotation.x += (armTarget - this.armPivot.rotation.x) * Math.min(1, dt * 14);
 

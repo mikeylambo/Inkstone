@@ -2,6 +2,8 @@
  * Shared mutable world context. Kept deliberately small — it exists so the
  * combat systems don't have to thread six arguments through every call.
  */
+import { TUNING } from './tuning.js';
+
 export const World = {
   /**
    * The run currently in progress, or null outside RUN. Combat systems fire
@@ -48,8 +50,12 @@ export const World = {
   },
 
   requestHitStop(t) {
-    if (t > this.hitStop) this.hitStop = t;
-    this.debug.lastHitStop = t;
+    // Single chokepoint for every freeze in the game, which is why the
+    // accessibility scalar is applied here and nowhere else. It is 1.0 by
+    // default, so combat is untouched until a player asks for it.
+    const scaled = t * TUNING.access.hitStopScale;
+    if (scaled > this.hitStop) this.hitStop = scaled;
+    this.debug.lastHitStop = scaled;
   },
 
   addCombo(n = 1) {

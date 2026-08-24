@@ -1,5 +1,272 @@
-# V0.2.5 — The Shell · Phase Report
+# V0.2.6 — Frame v1 · Phase Report
 
+Frame correction and expansion. Menus, states and slots only. No combat feel
+was touched, and gate FR6 is the proof rather than the promise.
+
+The game is now **INKSTONE**.
+
+## What was built
+
+**Identity.** Every player-facing SUMI/SlayRank string is now INKSTONE — title,
+version badge, `document.title`, README, export filenames. The print seal stays
+討. Storage keys moved to an `inkstone.*` namespace behind a one-release
+migration shim (`src/storage.js`) that reads each SUMI-era key exactly once and
+copies it forward. The legacy keys are deliberately **not** deleted, so a player
+who rolls back to a V0.2.5 build still has their save.
+
+**State machine.** Expanded to the full shape, with reserved states routing to
+real screens rather than dead menu entries:
+
+```
+BOOT → TITLE
+TITLE → PLAY_SELECT | INKSTONE | ARCHIVE | OPTIONS | CREDITS
+PLAY_SELECT → SCROLL_SELECT | RUN_SETUP(kata/daily) | PILGRIMAGE (placeholder)
+RUN ⇄ PAUSE → DEATH → RESULTS → (Again | PLAY_SELECT | TITLE)
+WAVE_CHOICE  reserved, dev-flagged, entered from the wave rest phase
+```
+
+A locked menu entry is a dead end for a pad walk. A placeholder screen is a slot
+you can see the shape of — and gate FR1 walks it.
+
+**The Inkstone** — `TECHNIQUES · STROKES · FINISHING STROKE · PIGMENT · RECORD`.
+Techniques is real and data-driven from a `TECHNIQUES` table, mounted both here
+and in the pause menu as one component. Each row carries a `geometry` slot for
+V0.3's stroke diagrams. The other three tabs are styled placeholders with one
+line of fiction each.
+
+**Archive** — `SCROLL GALLERY · RECORDS · INK RECORD · LEADERBOARDS`. The
+gallery keeps the last 20 run prints as PNG **blobs in IndexedDB**, not
+localStorage: a 560px print is 70 KB and the localStorage quota is 5 MB, so
+twenty of them would have evicted the player's profile.
+
+**Options vs dev tuning.** The pause menu used to hand every player five hundred
+engine parameters. Now Options is a curated allowlist view over real tuning
+paths — `ALLOWED_PATHS` is *derived* from the option definitions, so it cannot
+drift — and the full editor is behind `?dev=1` and the `` ` `` overlay.
+
+**Reserved slots**, all shells only: `WAVE_CHOICE` (Hades), per-wave verse
+grading (Bayonetta), `run.config.modifiers[]` (Hades Heat / Sifu), and a replay
+state with a round-tripping record format (Katana ZERO).
+
+## Gates
+
+### ✅ FR1 — full pad-only walk, no dead ends
+
+Driven with a synthetic Xbox pad, no keyboard or mouse. Every title entry
+entered and backed out; every Play entry likewise; every tab on both tabbed
+screens rendered content.
+
+| From | Entry | Lands | Nav items | B returns to |
+| --- | --- | --- | --- | --- |
+| TITLE | CONTINUE | RUN | — | (run) |
+| TITLE | PLAY | PLAY_SELECT | 5 | TITLE |
+| TITLE | INKSTONE | INKSTONE | 17 | TITLE |
+| TITLE | ARCHIVE | ARCHIVE | 4 | TITLE |
+| TITLE | OPTIONS | OPTIONS | 34 | TITLE |
+| TITLE | CREDITS | CREDITS | 1 | TITLE |
+| PLAY | PILGRIMAGE | PILGRIMAGE | 1 | PLAY_SELECT |
+| PLAY | SCROLLS | SCROLL_SELECT | 5 | PLAY_SELECT |
+| PLAY | KATA | RUN_SETUP | 2 | PLAY_SELECT |
+| PLAY | DAILY SCROLL | RUN_SETUP | 2 | PLAY_SELECT |
+
+Tabs: Inkstone `techniques` (17 items, 1211 chars) `strokes` `finisher`
+`pigment` `record`; Archive `gallery` `records` `ink` `boards`. All reachable,
+none empty.
+
+One gap the walk found: the tabbed screens could only be left with **B**, so a
+mouse user had no way out. They now render a BACK button too.
+
+### ✅ FR2 — `?dev=1` gates the tuning editor
+
+| | without `?dev=1` | with `?dev=1` |
+| --- | --- | --- |
+| `game.dev` | false | true |
+| DEV_TUNING screen constructed | no | yes |
+| tuning rows on that screen | — | 553 |
+| tuning rows anywhere in Pause | **0** | **0** |
+| tuning rows in Options | **0** | **0** |
+| Pause tabs | TECHNIQUES · OPTIONS | TECHNIQUES · OPTIONS |
+
+The dev screen is not merely hidden — in a player build it is never constructed.
+
+### ✅ FR3 — print → gallery → survives reload → 21st evicts the oldest
+
+Twenty-one saves against a `galleryMax` of 20 kept 20, and the first entry was
+the one evicted. Modifiers round-tripped through storage.
+
+A real run to RESULTS auto-saved its print (70 068 bytes) and it was still there
+after a reload, rendering in the Archive as a blob-backed image with
+view/export/delete live and replay disabled.
+
+Worth recording: `canvas.toBlob` on a 560×560 print takes **~900 ms**. A first
+check at 400 ms found nothing and looked like a failure; it was my test racing
+the encoder, not a bug.
+
+### ✅ FR4 — the move list matches the kit, programmatically
+
+`auditTechniques()` compares the technique table against `ATTACK_META` in both
+directions — an attack nobody documents, and a technique pointing at an attack
+that no longer exists — and also resolves every `DIR_MOVES` alias.
+
+```
+attacks in table: 10    techniques listed: 12
+missing: []             phantom: []             ok: true
+```
+
+### ✅ FR5 — a SUMI-era profile migrates intact
+
+Seeded `sumi.profile.v1` with two bests, 42 runs and a custom name, cleared
+every `inkstone.*` key, and cold-booted.
+
+| | result |
+| --- | --- |
+| profile version | 2 |
+| daily best | 4210 (intact) |
+| free best | 3100 (intact) |
+| totalRuns / name | 42 / MIKEY |
+| progression namespace | present, 8 keys, empty |
+| new key written | yes |
+| legacy key preserved | yes |
+| bindings + board carried | yes |
+
+Export → import round-tripped bests and progression exactly.
+
+### ✅ FR6 — combat untouched
+
+`git diff src/tuning.js` for this phase: **52 insertions, 0 deletions, 0
+modifications.** Every combat section — sim, player, dash, parry, magnetism,
+attacks, reactions, oni, camera, fx, combo, spawn, lockOn — is byte-identical.
+
+Two additions are worth naming explicitly rather than burying:
+
+* `audio` gained `musicVolume` and `sfxVolume`. It is a pre-existing section, so
+  the diff is not literally zero-touch; it is not combat feel, and the hash test
+  below covers it.
+* Three new sections — `difficulty`, `access`, `frame` — all below the frame
+  marker.
+
+Same seed, two runs, identical:
+
+```
+hash 20c404c1   spawnHash e5ba9e8a   waves 1   deterministic: true
+```
+
+The accessibility scalars are at identity on a fresh profile
+(`shake/hitStop/flash/camMotion = 1.0`, `highContrast = 0`), and each is applied
+at exactly one chokepoint — `World.requestHitStop`, `CameraRig.addTrauma`, the
+oni's flash intensity, the oni's tell palette. They are wired, not decorative:
+
+| scalar | 100% | 50% | 0% |
+| --- | --- | --- | --- |
+| `addTrauma(0.5)` → trauma | 0.5 | 0.25 | 0 |
+| `requestHitStop(0.2)` → freeze | 0.2 | 0.1 | 0 |
+
+**And hit-stop genuinely moves the simulation.** A scripted 90-swing fight on
+one seed:
+
+| hitStopScale | hash | freeze windows |
+| --- | --- | --- |
+| 1.0 | `17aea3c5` | 4 |
+| 0.5 | `1c28c51b` | 1 |
+| back to 1.0 | `17aea3c5` | 4 |
+
+That is why the option's own help text tells the player a run at anything other
+than 100% is not comparable to a leaderboard run. **This is a real design
+decision that deserves your sign-off** — see Open questions.
+
+### ✅ FR7 — WAVE_CHOICE reachable under the dev flag, skipped otherwise
+
+| | `waveChoiceEnabled = 1` | `= 0` |
+| --- | --- | --- |
+| state after clearing wave 1 | **WAVE_CHOICE** | RUN |
+| run phase | `choosing` | `spawning` |
+| pad-navigable cards | 3 | — |
+| HUD still visible | yes | — |
+| after resolving | RUN, wave 2 | — |
+| waves passed through | — | 1 → 2 → 3 → 4 |
+
+### ✅ FR8 — per-wave stats present for a multi-wave run
+
+Derived from the event stream rather than accumulated alongside it, so there is
+no second copy to keep in sync. A three-wave run:
+
+| wave | time | hits | kills | taken | best | grade |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 3.82s | 0 | 2 | 0 | 0 | — |
+| 2 | 4.38s | 0 | 3 | 0 | 0 | — |
+| 3 | 4.65s | 0 | 4 | 0 | 0 | — |
+
+`grade` stays null until the V0.6 evaluator can fill it, and RESULTS renders the
+column blank rather than inventing one. Hit events now carry the stroke count
+(`c`) so `bestCombo` per wave is real data, not a re-derivation.
+
+### ✅ FR9 — a dummy modifier is recorded and displayed
+
+A run started with `[{id:'dev-heat', label:'DEV HEAT', scoreMul:1}]`:
+
+| surface | carries it |
+| --- | --- |
+| `run.config.modifiers` | ✓ |
+| `record.meta.modifiers` | ✓ |
+| `summary.modifiers` | ✓ |
+| RESULTS panel | "MODIFIERS · DEV HEAT ×1" |
+| leaderboard entry | ✓ (with `scroll: endless`) |
+| gallery entry | ✓ |
+
+RESULTS also showed the re-skinned header (書 FINISHED CALLIGRAPHY), the SCROLL
+row, and the wave breakdown with a blank MARK column. The evaluator axes
+correctly did **not** render, because nothing produces them yet.
+
+### ✅ FR10 — RunRecord save → load → save is byte-identical
+
+556 events across 400 sim steps, including meta and modifiers:
+
+```
+29 106 bytes    round-trips exactly: true
+```
+
+`toJSON()` has a fixed key order and only plain values, so
+`stringify(toJSON())` is stable. That is the property the future replay viewer
+needs, pinned now while it is cheap.
+
+## Things worth flagging
+
+**Hit-stop accessibility changes the sim.** Reducing it makes the game easier to
+tolerate and also makes the run a different run — a daily seed played at 50%
+hit-stop is not the same fight as one played at 100%. I shipped it (it is a
+real accessibility need) with the caveat in the option text, but the leaderboard
+does not yet *record* the setting. Options: record it on the entry and mark
+those runs, split the board, or accept it. Your call — say which and it is a
+small change.
+
+**Two options, one path.** "Lock-on: Toggle/Hold" (Gameplay) and "Hold actions
+become toggles" (Accessibility) are inverse views of `controls.lockIsHold`,
+because the brief asked for both. Editing either now repaints both rows, so they
+can no longer disagree — but if a second hold-action ever ships, the
+accessibility row needs to become a genuine umbrella rather than an alias.
+
+**The music bus has no sources.** `audio.musicVolume` drives a real Tone gain
+bus, but every voice that exists today is an effect and runs through sfx. The
+option says so plainly instead of pretending to do something.
+
+**Scoring floors at zero.** Not a change, but it surprised me mid-testing: a
+scripted run earned 348.84 from hits and 154 from kills, took 720 in damage
+penalty, and reported 0. That is the clamp working, not a bug — worth knowing
+before reading any low score as broken.
+
+## Open questions
+
+1. Should a run's accessibility settings be recorded on its leaderboard entry?
+2. `MISSION_CLEAR` is in the enum but nothing can currently win — no scroll has
+   a win condition. It stays a reserved state until one does.
+3. Difficulty multipliers are all ×1 and act on the wave table. Confirm that is
+   the axis you want before V0.4 fills them in.
+
+---
+
+# Previous phases
+
+# V0.2.5 — The Shell
 The frame of the finished game, with every screen, mode and slot in place.
 Combat was not touched: gate S6 is the proof.
 
@@ -243,12 +510,9 @@ profile or board write can no longer strand the player on the death screen.
    title, setup or results screens. Worth doing before V0.3.
 
 ---
----
 
-# Previous phases
-
-Kept for continuity. Gates F1–F5 belong to V0.2.1; G2.1–G2.5 belong to V0.2 and
-are in git history at the `V0.2 — Combat Feel` commit.
+Gates F1–F5 belong to V0.2.1; G2.1–G2.5 belong to V0.2 and are in git history at
+the `V0.2 — Combat Feel` commit.
 
 # V0.2.1 — Restore Sword Feel · Fix Controls
 

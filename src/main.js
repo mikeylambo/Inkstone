@@ -1,5 +1,5 @@
 /**
- * SUMI — entry point.
+ * INKSTONE — entry point.
  *
  * Fixed-timestep sim (60 Hz) decoupled from render, hit-stop that freezes the
  * world in whole sim steps. What state the app is in — title, run, results —
@@ -20,15 +20,17 @@ import { Player } from './entities/player.js';
 import { Hud } from './hud.js';
 import { Debug } from './debug.js';
 import { PauseMenu } from './pause.js';
-import { Game, STATE } from './game.js';
+import { Game, STATE, devMode } from './game.js';
 import { Profile } from './profile.js';
+import { PlayerOptions, Hooks } from './playeroptions.js';
+import { migrateOnce } from './storage.js';
 
 // Build version, injected from package.json by vite.config.js
 const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
-document.title = `SUMI — V${VERSION}`;
+document.title = `INKSTONE — V${VERSION}`;
 {
   const el = document.getElementById('version');
-  if (el) el.textContent = `SUMI · V${VERSION}`;
+  if (el) el.textContent = `INKSTONE · V${VERSION}`;
 }
 
 // --------------------------------------------------------------- renderer
@@ -45,7 +47,13 @@ const camera = new THREE.PerspectiveCamera(
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+/** Pixel ratio, after the player's resolution-scale option. */
+function applyPixelRatio() {
+  const scale = TUNING.frame.resolutionScale;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale);
+}
+applyPixelRatio();
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
@@ -87,6 +95,18 @@ const debug = new Debug(scene, {
 });
 
 Input.init();
+
+// Options must not import the renderer or the audio graph, so it calls back
+// through these instead. Registered before load() so restoring a saved
+// profile's choices actually reaches the things they describe.
+Hooks.onVisual = () => {
+  applyPixelRatio();
+  document.documentElement.style.setProperty('--text-scale', String(TUNING.access.textScale));
+};
+Hooks.onAudio = () => Audio.applyVolumes();
+
+migrateOnce();
+PlayerOptions.load();
 
 // ------------------------------------------------------------------ audio
 
@@ -205,10 +225,10 @@ requestAnimationFrame(frame);
 
 // expose for console poking during tuning sessions and for the headless
 // harness used to produce gate evidence in REPORT.md
-window.SUMI = {
+const HARNESS = {
   VERSION,
   World, TUNING, Input, Audio, scene, camera, renderer,
-  game, pauseMenu, hud, Profile, STATE, simStep, STEP,
+  game, pauseMenu, hud, Profile, STATE, simStep, STEP, devMode,
 
   /** Dev: bounce every procedural sound to WAV via the local file sink. */
   async exportAudio(sink) {
@@ -226,3 +246,7 @@ window.SUMI = {
     }
   },
 };
+
+window.INKSTONE = HARNESS;
+/** Kept so console snippets and the gate harness from the SUMI era still run. */
+window.SUMI = HARNESS;

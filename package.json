@@ -1,7 +1,7 @@
 {
   "name": "sumi",
   "private": true,
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "description": "SUMI (codename SlayRank) - vertical slice. V0.2.5: The Shell.",
   "scripts": {

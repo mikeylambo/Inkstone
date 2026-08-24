@@ -1,6 +1,7 @@
 /* ================= SHELL: per-state visibility ================= */
 /* The combat HUD belongs to RUN and PAUSE only. */
-body:not([data-state="RUN"]):not([data-state="PAUSE"]) #hud { display: none; }
+/* The combat HUD belongs to the three states that have a run behind them. */
+body:not([data-state="RUN"]):not([data-state="PAUSE"]):not([data-state="WAVE_CHOICE"]) #hud { display: none; }
 
 /* ================= SHELL: screens ================= */
 .screen {

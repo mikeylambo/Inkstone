@@ -375,6 +375,13 @@ export const TUNING = {
 
   audio: {
     masterVolume: -4,
+    /**
+     * Two real gain buses, in dBFS. Everything that exists today is an effect
+     * and runs through sfx; music is wired but has no sources yet, so the
+     * option that drives it says so rather than pretending.
+     */
+    musicVolume: 0,
+    sfxVolume: 0,
     whiffVolume: -18,
     impactVolume: -3,
     minRetrigger: 0.020,
@@ -507,6 +514,51 @@ export const TUNING = {
     maxRange: 26.0,
     breakRange: 30.0,
     switchDeadzone: 0.5,
+  },
+
+  /**
+   * ---- V0.2.6 FRAME ----
+   * Shell, difficulty and accessibility. Nothing below here is combat feel;
+   * gate FR6 says the combat sections must stay diff-clean.
+   */
+
+  /**
+   * Difficulty is reserved, not built. Only STANDARD is selectable. The hooks
+   * are deliberately wave-table and aggression multipliers rather than
+   * HP/damage sliders — scaling numbers makes a fight longer, not harder, and
+   * a scoresmith wants the fight to change shape.
+   */
+  difficulty: {
+    current: 'standard',
+    /** Per-difficulty multipliers. Empty bodies = no effect, by design. */
+    unwritten: { waveCountMul: 1, waveIntervalMul: 1, aggressionMul: 1, scoreMul: 1 },
+    standard: { waveCountMul: 1, waveIntervalMul: 1, aggressionMul: 1, scoreMul: 1 },
+    bloodink: { waveCountMul: 1, waveIntervalMul: 1, aggressionMul: 1, scoreMul: 1 },
+    master: { waveCountMul: 1, waveIntervalMul: 1, aggressionMul: 1, scoreMul: 1 },
+    void: { waveCountMul: 1, waveIntervalMul: 1, aggressionMul: 1, scoreMul: 1 },
+  },
+
+  /**
+   * Accessibility scalars. Every one of these is 1.0 by default and is applied
+   * at a single chokepoint, so the shipped game is bit-identical to V0.2.5
+   * until a player changes one. Gate FR6 checks exactly that.
+   */
+  access: {
+    shakeScale: 1.0,       // World-wide multiplier on camera trauma
+    hitStopScale: 1.0,     // multiplier on every freeze request
+    flashScale: 1.0,       // multiplier on hit-flash duration
+    camMotionScale: 1.0,   // kick, zoom punch and push-in
+    highContrast: 0,       // 1 = enemy tells get a high-contrast treatment
+    textScale: 1.0,        // UI text size multiplier
+  },
+
+  /** Shell behaviour that is not combat and not accessibility. */
+  frame: {
+    hints: 1,              // control hints in the run HUD
+    resolutionScale: 1.0,  // renderer pixel ratio multiplier
+    inkDensity: 1.0,       // scales the ribbon budget (trailLayers / trailSamples)
+    galleryMax: 20,        // prints kept in the Scroll Gallery
+    waveChoiceEnabled: 0,  // dev flag — WAVE_CHOICE is a reserved state
   },
 };
 

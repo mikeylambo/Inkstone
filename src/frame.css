@@ -1,0 +1,453 @@
+/* ==========================================================================
+   INKSTONE — Frame v1 (V0.2.6)
+   Styles for the screens added in this pass: Play/Scroll select, The Inkstone,
+   the Archive, Player Options, the technique list, placeholders and the
+   reserved wave-choice cards.
+   ========================================================================== */
+
+:root { --text-scale: 1; }
+
+/* Accessibility text size. Applied at the root so every rem-relative size in
+   the shell follows it; the 3D view is unaffected. */
+body { font-size: calc(15px * var(--text-scale)); }
+
+/* --------------------------------------------------------------- HUD hints */
+
+#controls.hidden { display: none !important; }
+
+/* ------------------------------------------------------------------- title */
+
+.title-credits { margin-top: 18px; text-align: center; }
+.menu-btn.tiny {
+  display: inline-block;
+  width: auto;
+  padding: 4px 14px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  opacity: 0.6;
+}
+.menu-btn.tiny:hover, .menu-btn.tiny:focus { opacity: 1; }
+
+/* Reserved entries read as paper waiting to be written on, not as errors. */
+.menu-btn.reserved { opacity: 0.62; border-style: dashed; }
+.menu-btn.reserved:hover, .menu-btn.reserved:focus { opacity: 1; }
+.menu-btn.locked { opacity: 0.35; cursor: default; border-style: dashed; }
+
+/* ------------------------------------------------------------ placeholders */
+
+.unwritten {
+  text-align: center;
+  padding: 34px 18px;
+  border: 1px dashed rgba(120, 113, 108, 0.5);
+  background: rgba(28, 25, 23, 0.18);
+}
+.unwritten-kanji {
+  font-family: 'Yuji Syuku', serif;
+  font-size: 44px;
+  color: rgba(168, 162, 158, 0.5);
+  line-height: 1;
+}
+.unwritten-title {
+  margin-top: 10px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 15px;
+  letter-spacing: 0.22em;
+  color: #d6d3d1;
+}
+.unwritten-line {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #a8a29e;
+  max-width: 46ch;
+  margin-inline: auto;
+}
+
+/* -------------------------------------------------------------------- tabs */
+
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 14px; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #a8a29e;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+.tab:hover { color: #e7e5e4; }
+.tab:focus-visible, .tab:focus { outline: none; color: #fafaf9; border-bottom-color: var(--vermilion); }
+.tab.active { color: #fafaf9; border-bottom-color: var(--vermilion); }
+.tab-kanji { font-family: 'Yuji Syuku', serif; font-size: 16px; color: var(--vermilion); }
+
+.tab-body { max-height: 60vh; overflow-y: auto; padding-right: 6px; }
+
+/* The Inkstone is a stone on paper: darker, wetter, slightly inset. */
+.screen-panel.stone {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(41, 37, 36, 0.55), transparent 60%),
+    rgba(28, 25, 23, 0.9);
+  box-shadow: inset 0 2px 26px rgba(0, 0, 0, 0.55);
+}
+
+/* -------------------------------------------------------------- techniques */
+
+.tech-list { display: flex; flex-direction: column; gap: 2px; }
+.tech-group {
+  margin: 14px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: #78716c;
+  border-bottom: 1px solid rgba(120, 113, 108, 0.3);
+  padding-bottom: 4px;
+}
+.tech-row {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 8px;
+  border-left: 2px solid transparent;
+  cursor: default;
+}
+.tech-row:hover { background: rgba(120, 113, 108, 0.1); }
+.tech-row:focus, .tech-row:focus-visible {
+  outline: none;
+  background: rgba(185, 28, 28, 0.14);
+  border-left-color: var(--vermilion);
+}
+.tech-row.locked { opacity: 0.4; }
+/* Reserved: the V0.3 stroke diagram draws into this box. */
+.tech-geo {
+  width: 46px;
+  height: 30px;
+  border: 1px dashed rgba(120, 113, 108, 0.28);
+}
+.tech-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tech-name {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: #fafaf9;
+}
+.tech-keys {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vermilion);
+  text-align: right;
+  white-space: nowrap;
+}
+.tech-line { margin-top: 2px; font-size: 11px; color: #a8a29e; line-height: 1.45; }
+
+/* ----------------------------------------------------------------- options */
+
+.opts { display: flex; flex-direction: column; max-height: 58vh; overflow-y: auto; padding-right: 6px; }
+.opt-group {
+  margin: 16px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: #78716c;
+  border-bottom: 1px solid rgba(120, 113, 108, 0.3);
+  padding-bottom: 4px;
+}
+.opt-row {
+  display: grid;
+  grid-template-columns: 1fr 230px;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 8px;
+  border-left: 2px solid transparent;
+}
+.opt-row:hover { background: rgba(120, 113, 108, 0.1); }
+.opt-label { font-size: 12px; color: #d6d3d1; }
+.opt-control { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.opt-control input[type="range"] { flex: 1; min-width: 120px; }
+.opt-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #a8a29e;
+  min-width: 44px;
+  text-align: right;
+}
+.opt-toggle, .opt-choice, .opt-action {
+  min-width: 110px;
+  padding: 5px 10px;
+  background: rgba(41, 37, 36, 0.8);
+  border: 1px solid rgba(120, 113, 108, 0.45);
+  color: #e7e5e4;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.opt-toggle[data-on="1"] { color: var(--vermilion); border-color: var(--vermilion); }
+.opt-toggle:focus, .opt-choice:focus, .opt-action:focus,
+.opt-row:focus, .opt-row:focus-visible,
+.opts input[type="range"]:focus {
+  outline: none;
+  border-color: var(--vermilion);
+  box-shadow: 0 0 0 1px var(--vermilion);
+}
+.opt-row.bindrow { cursor: pointer; grid-template-columns: 1fr 230px; }
+.opt-binding {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vermilion);
+  text-align: right;
+}
+.opt-note { font-size: 11px; color: #a8a29e; padding: 4px 8px 8px; }
+.opt-foot { padding: 12px 8px; }
+.opt-foot button {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(120, 113, 108, 0.5);
+  color: #d6d3d1;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+.opt-foot button:focus { outline: none; border-color: var(--vermilion); color: #fafaf9; }
+.opt-info {
+  position: sticky;
+  bottom: 0;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(12, 10, 9, 0.94);
+  border-top: 1px solid rgba(120, 113, 108, 0.35);
+  font-size: 11px;
+  color: #a8a29e;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------- scroll select */
+
+.difficulty-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(120, 113, 108, 0.3);
+}
+.diff-title { font-size: 10px; letter-spacing: 0.28em; color: #78716c; margin-right: 8px; }
+.diff-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid rgba(120, 113, 108, 0.4);
+  color: #a8a29e;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+.diff-btn.active { color: #fafaf9; border-color: var(--vermilion); }
+.diff-btn.locked { opacity: 0.3; cursor: default; border-style: dashed; }
+.diff-btn:focus { outline: none; box-shadow: 0 0 0 1px var(--vermilion); }
+.diff-kanji { font-family: 'Yuji Syuku', serif; font-size: 14px; color: var(--vermilion); }
+
+.scroll-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.scroll-card {
+  padding: 14px;
+  background: rgba(28, 25, 23, 0.72);
+  border: 1px solid rgba(120, 113, 108, 0.4);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.scroll-card:hover { background: rgba(41, 37, 36, 0.85); }
+.scroll-card:focus, .scroll-card:focus-visible {
+  outline: none;
+  border-left-color: var(--vermilion);
+  box-shadow: 0 0 0 1px var(--vermilion);
+}
+.scroll-card.unwritten-card { padding: 0; border: none; cursor: default; }
+.scroll-head { display: flex; align-items: baseline; gap: 10px; }
+.scroll-kanji { font-family: 'Yuji Syuku', serif; font-size: 24px; color: var(--vermilion); }
+.scroll-label {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 15px;
+  letter-spacing: 0.16em;
+  color: #fafaf9;
+}
+.scroll-blurb { margin: 7px 0 10px; font-size: 11px; color: #a8a29e; line-height: 1.5; }
+.scroll-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+}
+.sc-k { color: #78716c; display: block; letter-spacing: 0.12em; }
+.sc-v { color: #e7e5e4; display: block; margin-top: 2px; }
+.scroll-pigment { margin-top: 10px; font-size: 10px; color: #78716c; }
+.scroll-pigment .bar { margin-top: 3px; height: 4px; background: rgba(120, 113, 108, 0.3); }
+.scroll-pigment .bar-fill { height: 100%; background: var(--vermilion); }
+.scroll-inscriptions { margin-top: 8px; font-size: 10px; letter-spacing: 0.12em; color: #78716c; }
+.scroll-challenges { margin-top: 8px; font-size: 10px; color: #a8a29e; }
+.scroll-challenges .ch.done { color: var(--vermilion); }
+.scroll-seed { margin-top: 10px; }
+.scroll-seed .seed-input { width: 100%; }
+
+/* --------------------------------------------------------------- archive */
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.gal-card {
+  background: rgba(28, 25, 23, 0.72);
+  border: 1px solid rgba(120, 113, 108, 0.4);
+  padding: 8px;
+}
+.gal-img { display: block; width: 100%; height: auto; background: var(--parchment); }
+.gal-meta { margin-top: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+.gal-line { display: flex; justify-content: space-between; color: #e7e5e4; }
+.gal-sub { color: #78716c; margin-top: 2px; }
+.gal-mods { color: var(--vermilion); margin-top: 2px; }
+.gal-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.menu-btn.small {
+  width: auto;
+  flex: 1 1 auto;
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+.menu-btn.small.danger:hover, .menu-btn.small.danger:focus { color: var(--vermilion); }
+
+.meta-record h3, .board-sec h3 {
+  margin: 14px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: #78716c;
+}
+.meta-note { margin-top: 12px; font-size: 11px; color: #78716c; line-height: 1.5; }
+.board-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.ink-entry {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px dashed rgba(120, 113, 108, 0.5);
+  background: rgba(28, 25, 23, 0.4);
+}
+.ink-kanji {
+  font-family: 'Yuji Syuku', serif;
+  font-size: 46px;
+  color: rgba(185, 28, 28, 0.55);
+  text-align: center;
+  line-height: 1;
+}
+.ink-name { font-family: 'Shippori Mincho', serif; font-size: 14px; letter-spacing: 0.16em; color: #e7e5e4; }
+.ink-line { margin-top: 4px; font-size: 11px; color: #a8a29e; }
+
+/* --------------------------------------------------------------- results */
+
+.results-mods h3, .results-axes h3 {
+  margin: 12px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: #78716c;
+}
+.axis {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+  color: #a8a29e;
+  margin-bottom: 4px;
+}
+.axis .bar { height: 5px; background: rgba(120, 113, 108, 0.3); }
+.axis .bar-fill { height: 100%; background: var(--vermilion); }
+
+.results-waves { margin: 12px 0; }
+.results-waves summary {
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: #78716c;
+  padding: 4px 0;
+}
+.results-waves summary:focus { outline: none; color: var(--vermilion); }
+.wave-table { font-family: 'IBM Plex Mono', monospace; font-size: 10px; margin-top: 6px; }
+.wrow {
+  display: grid;
+  grid-template-columns: 46px 1fr 1fr 1fr 1fr 46px;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(120, 113, 108, 0.16);
+  color: #d6d3d1;
+}
+.wrow.whead { color: #78716c; letter-spacing: 0.12em; }
+.wmark { color: var(--vermilion); text-align: right; }
+
+/* ---------------------------------------------------------- wave choice */
+
+.choice-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 10px; }
+.choice-card {
+  padding: 20px 14px;
+  text-align: center;
+  background: var(--parchment, #dcd3be);
+  color: #1c1917;
+  border: 1px solid rgba(28, 25, 23, 0.4);
+  cursor: pointer;
+}
+.choice-card:focus, .choice-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--vermilion);
+}
+.choice-kanji { font-family: 'Yuji Syuku', serif; font-size: 34px; color: var(--vermilion); }
+.choice-label {
+  margin-top: 6px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+}
+.choice-line { margin-top: 6px; font-size: 11px; color: #57534e; line-height: 1.45; }
+
+/* ------------------------------------------------------------ pause menu */
+
+#pause-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#pause-head button {
+  margin-left: 0;
+  padding: 5px 11px;
+  background: transparent;
+  border: 1px solid rgba(120, 113, 108, 0.5);
+  color: #d6d3d1;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+#pause-head button:focus, #pause-head button:focus-visible {
+  outline: none;
+  border-color: var(--vermilion);
+  color: #fafaf9;
+  box-shadow: 0 0 0 1px var(--vermilion);
+}
+#pause-head button.hidden { display: none !important; }
+#pause-title { margin-right: auto; }
+#pause-body { max-height: 52vh; overflow-y: auto; }
+
+/* ------------------------------------------------------------ responsive */
+
+@media (max-width: 900px) {
+  .board-wrap { grid-template-columns: 1fr; }
+  .choice-list { grid-template-columns: 1fr; }
+  .opt-row { grid-template-columns: 1fr 160px; }
+}

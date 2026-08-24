@@ -1,47 +1,18 @@
 /**
- * Shell screens: TITLE, RUN_SETUP, DEATH, RESULTS.
+ * The run-flow screens: TITLE, RUN_SETUP, DEATH, FINISHED CALLIGRAPHY
+ * (results), and the dev tuning screen.
  *
- * All of them are DOM in the existing HUD idiom (parchment, sumi, hanko) and
- * all of them are pad-navigable via MenuNav — gate S2.
+ * The meta screens — The Inkstone, the Archive, Options, Play/Scroll select —
+ * live in ui/. The split is by lifecycle, not by size: everything here is on
+ * the path into or out of a run.
  */
 import { MODES, dailySeed } from './run.js';
 import { Profile } from './profile.js';
 import { board } from './board.js';
-import { MenuNav } from './menunav.js';
+import { Gallery } from './gallery.js';
 import { renderPrint, exportPrintPNG } from './print.js';
 import { SettingsEditor } from './settings.js';
-
-const $ = (id) => document.getElementById(id);
-
-function button(label, onClick, opts = {}) {
-  const b = document.createElement('button');
-  b.className = `menu-btn ${opts.className || ''}`.trim();
-  b.setAttribute('data-menu-item', '');
-  b.innerHTML = opts.html || '';
-  if (!opts.html) b.textContent = label;
-  b.onclick = onClick;
-  if (opts.sub) {
-    const s = document.createElement('span');
-    s.className = 'menu-sub';
-    s.textContent = opts.sub;
-    b.appendChild(s);
-  }
-  return b;
-}
-
-/** Shared behaviour: a root element plus a MenuNav over it. */
-class Screen {
-  constructor(rootId, game) {
-    this.root = $(rootId);
-    this.game = game;
-    this.nav = new MenuNav(this.root, { onBack: () => this.back() });
-  }
-  show() { this.root.classList.remove('hidden'); this.nav.enter(); }
-  hide() { this.root.classList.add('hidden'); this.nav.exit(); }
-  update(dt) { this.nav.update(dt); }
-  handleKey(e) { return this.nav.handleKey(e); }
-  back() {}
-}
+import { Screen, button, $ } from './ui/screen.js';
 
 // ------------------------------------------------------------------- TITLE
 
@@ -50,61 +21,74 @@ export class TitleScreen extends Screen {
 
   show() {
     const last = MODES[Profile.data.lastMode] ? Profile.data.lastMode : 'daily';
+    const played = Profile.data.totalRuns > 0;
     const menu = this.root.querySelector('.menu-list');
     menu.innerHTML = '';
-    menu.appendChild(button(`BEGIN — ${MODES[last].label}`, () => this.game.startRun(last), {
-      sub: 'Straight back into the last mode you played',
+
+    menu.appendChild(button(played ? 'CONTINUE' : 'BEGIN', () => this.game.startRun(last), {
+      sub: played
+        ? `Straight back into ${MODES[last].label}`
+        : 'Take up the brush',
     }));
-    menu.appendChild(button('MODES', () => this.game.toSetup(), {
-      sub: 'Daily Scroll · Free · Kata',
+    menu.appendChild(button('PLAY', () => this.game.toPlaySelect(), {
+      sub: 'Pilgrimage · Scrolls · Kata · Daily Scroll',
     }));
-    menu.appendChild(button('SETTINGS', () => this.game.openSettings(), {
-      sub: 'Controls, bindings and every tuning value',
+    menu.appendChild(button('INKSTONE', () => this.game.toInkstone(), {
+      sub: 'Techniques, strokes and what the ink remembers',
     }));
+    menu.appendChild(button('ARCHIVE', () => this.game.toArchive(), {
+      sub: 'Finished scrolls, records and boards',
+    }));
+    menu.appendChild(button('OPTIONS', () => this.game.toOptions(), {
+      sub: 'Controls, audio, visuals and accessibility',
+    }));
+
     const runs = Profile.data.totalRuns;
-    this.root.querySelector('.title-foot').textContent =
-      runs ? `${runs} run${runs === 1 ? '' : 's'} recorded` : 'No runs yet';
+    this.root.querySelector('.title-foot').innerHTML =
+      `<span>${runs ? `${runs} run${runs === 1 ? '' : 's'} recorded` : 'No runs yet'}</span>`;
+
+    const credits = this.root.querySelector('.title-credits');
+    credits.innerHTML = '';
+    credits.appendChild(button('CREDITS', () => this.game.toCredits(), { className: 'tiny' }));
+
     super.show();
   }
 }
 
 // --------------------------------------------------------------- RUN_SETUP
 
+/** Confirmation and detail for the two modes that are not scrolls. */
 export class SetupScreen extends Screen {
-  constructor(game) { super('screen-setup', game); }
-  back() { this.game.toTitle(); }
+  constructor(game) {
+    super('screen-setup', game);
+    this.mode = 'daily';
+  }
+  back() { this.game.toPlaySelect(); }
+
+  setMode(mode) { this.mode = MODES[mode] ? mode : 'daily'; }
 
   show() {
+    const m = MODES[this.mode];
+    const day = Profile.today();
+    const best = Profile.bestFor(this.mode, day);
+
+    this.root.querySelector('.setup-head').innerHTML =
+      `<span class="kanji">${m.kanji}</span> ${m.label}`;
+    this.root.querySelector('.setup-blurb').textContent = m.blurb;
+
+    const stats = this.root.querySelector('.setup-stats');
+    stats.innerHTML = this.mode === 'kata'
+      ? '<div class="rrow"><span>SCORED</span><span>No — practice</span></div>'
+      : `<div class="rrow"><span>YOUR BEST</span><span>${best ? `${best.score} · wave ${best.wave}` : '—'}</span></div>` +
+        `<div class="rrow"><span>SEED</span><span>${this.mode === 'daily' ? dailySeed(day) : 'random'}</span></div>`;
+
     const list = this.root.querySelector('.menu-list');
     list.innerHTML = '';
-    const day = Profile.today();
+    list.appendChild(button('BEGIN', () => this.game.startRun(this.mode)));
+    list.appendChild(button('BACK', () => this.game.toPlaySelect()));
 
-    for (const id of ['daily', 'free', 'kata']) {
-      const m = MODES[id];
-      const best = Profile.bestFor(id, day);
-      const bestText = id === 'kata'
-        ? 'Practice — not scored'
-        : (best ? `Best ${best.score} · wave ${best.wave}` : 'No record yet');
-      list.appendChild(button(m.label, () => this.game.startRun(id), {
-        html: `<span class="menu-kanji">${m.kanji}</span><span class="menu-label">${m.label}</span>`,
-        sub: `${m.blurb}  —  ${bestText}`,
-      }));
-    }
-
-    // free-mode seed entry, reachable but out of the main flow
-    const seedRow = this.root.querySelector('.seed-row');
-    seedRow.innerHTML = '';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'seed-input';
-    input.placeholder = 'seed for FREE (blank = random)';
-    input.value = this.game.freeSeed || '';
-    input.addEventListener('change', () => { this.game.freeSeed = input.value.trim(); });
-    seedRow.appendChild(input);
-
-    list.appendChild(button('BACK', () => this.game.toTitle()));
     this.root.querySelector('.setup-foot').textContent =
-      `Daily seed: ${dailySeed(day)}`;
+      this.mode === 'daily' ? 'The seed changes at UTC midnight.' : '';
     super.show();
   }
 }
@@ -122,8 +106,15 @@ export class DeathScreen {
   handleKey() { return false; }
 }
 
-// ------------------------------------------------------------------ RESULTS
+// ------------------------------------------------ RESULTS / FINISHED CALLIGRAPHY
 
+/**
+ * The end-of-run screen, re-skinned to the fiction.
+ *
+ * Reserved stat lines and the evaluator axes render only when the summary
+ * actually carries them, so this screen already has the shape it will have in
+ * V0.6 without showing five zeroes today.
+ */
 export class ResultsScreen extends Screen {
   constructor(game) {
     super('screen-results', game);
@@ -141,31 +132,55 @@ export class ResultsScreen extends Screen {
     const mins = Math.floor(summary.timeSeconds / 60);
     const secs = Math.floor(summary.timeSeconds % 60);
 
-    stats.innerHTML =
-      row('MODE', summary.modeLabel) +
+    let html =
+      row('FORM', summary.modeLabel) +
+      (summary.scrollLabel ? row('SCROLL', summary.scrollLabel) : '') +
       (summary.wave ? row('WAVE REACHED', summary.wave) : '') +
       row('TIME', `${mins}:${String(secs).padStart(2, '0')}`) +
       row('STROKES', summary.strokes) +
       row('BEST COMBO', summary.bestCombo) +
-      row('KILLS', summary.kills) +
+      row('STAINS CLEARED', summary.kills) +
       row('PARRIES', summary.parries) +
-      row('DAMAGE TAKEN', summary.damageTaken) +
-      row('SCORE', summary.score, 'big');
+      row('DAMAGE TAKEN', summary.damageTaken);
+
+    // --- reserved lines: only when the system that fills them exists ---
+    if (summary.uniqueForms != null) html += row('UNIQUE FORMS', summary.uniqueForms);
+    if (summary.pigmentCaptured != null) html += row('PIGMENT CAPTURED', `${Math.round(summary.pigmentCaptured * 100)}%`);
+
+    html += row('SCORE', summary.score, 'big');
+    stats.innerHTML = html;
+
+    // --- modifiers (reserved; a run with none renders nothing) ---
+    const mods = this.root.querySelector('.results-mods');
+    mods.innerHTML = (summary.modifiers && summary.modifiers.length)
+      ? '<h3>MODIFIERS</h3>' + summary.modifiers.map((m) =>
+          `<div class="rrow"><span>${m.label || m.id}</span><span>×${m.scoreMul ?? 1}</span></div>`).join('')
+      : '';
+
+    // --- evaluator axes (V0.6) ---
+    const axes = this.root.querySelector('.results-axes');
+    axes.innerHTML = summary.axes
+      ? '<h3>THE HAND</h3>' + ['composition', 'flow', 'variety', 'control', 'economy']
+          .map((k) => `<div class="axis"><span>${k.toUpperCase()}</span>` +
+            `<div class="bar"><div class="bar-fill" style="width:${Math.round((summary.axes[k] || 0) * 100)}%"></div></div></div>`)
+          .join('')
+      : '';
 
     const seal = this.root.querySelector('.results-seal');
     seal.innerHTML = `<div class="seal-kanji" style="color:${rank.color}">${rank.kanji}</div>` +
       `<div class="seal-title" style="color:${rank.color}">${rank.title} (${rank.grade})</div>`;
 
-    // personal best delta
+    // --- personal best delta ---
     const pb = this.root.querySelector('.results-pb');
     if (summary.mode === 'kata') {
       pb.textContent = 'Kata runs are not scored.';
+      pb.className = 'results-pb';
     } else {
       const res = summary.pb;
       if (res && res.isBest) {
         pb.textContent = res.previous
           ? `NEW BEST  ·  +${summary.score - res.previous.score} over your previous ${res.previous.score}`
-          : 'NEW BEST  ·  first record for this mode';
+          : 'NEW BEST  ·  first record for this form';
         pb.className = 'results-pb best';
       } else if (res && res.previous) {
         pb.textContent = `Best stands at ${res.previous.score}  ·  ${summary.score - res.previous.score} this run`;
@@ -175,7 +190,10 @@ export class ResultsScreen extends Screen {
       }
     }
 
-    // leaderboard (LocalBoard today)
+    // --- wave breakdown (Bayonetta): collapsible, per-wave ---
+    this.renderWaveBreakdown(summary);
+
+    // --- leaderboard ---
     const lb = this.root.querySelector('.results-board');
     try {
       const top = await board.top(summary.mode, summary.day, 5);
@@ -193,10 +211,15 @@ export class ResultsScreen extends Screen {
     this.printCanvas.className = 'print-canvas';
     frame.appendChild(this.printCanvas);
 
+    // Auto-save to the Scroll Gallery. A failure here must not touch the
+    // screen: the print is already on-screen and exportable either way.
+    Gallery.save(this.printCanvas, summary).catch(() => {});
+
     // --- buttons ---
     const list = this.root.querySelector('.menu-list');
     list.innerHTML = '';
-    list.appendChild(button('AGAIN', () => this.game.startRun(summary.mode)));
+    list.appendChild(button('AGAIN', () => this.game.again(summary)));
+    list.appendChild(button('SCROLLS', () => this.game.toPlaySelect()));
     list.appendChild(button('TITLE', () => this.game.toTitle()));
     list.appendChild(button('COPY SEED', (ev) => {
       const btn = ev.currentTarget;
@@ -206,19 +229,55 @@ export class ResultsScreen extends Screen {
       } else { done(false); }
     }));
     list.appendChild(button('EXPORT SCROLL (PNG)', () => {
-      exportPrintPNG(this.printCanvas, `sumi-${summary.mode}-${summary.seed}.png`);
+      exportPrintPNG(this.printCanvas, `inkstone-${summary.mode}-${summary.seed}.png`);
     }));
 
     super.show();
   }
+
+  /**
+   * Reserved (Bayonetta's per-verse grading). The panel renders whatever
+   * per-wave rows the record produced; the grade column stays blank until the
+   * V0.6 evaluator can fill it.
+   */
+  renderWaveBreakdown(summary) {
+    const host = this.root.querySelector('.results-waves');
+    const waves = summary.waveStats || [];
+    if (!waves.length) { host.innerHTML = ''; return; }
+
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.textContent = `WAVE BREAKDOWN (${waves.length})`;
+    sum.setAttribute('data-menu-item', '');
+    sum.tabIndex = 0;
+    det.appendChild(sum);
+
+    const table = document.createElement('div');
+    table.className = 'wave-table';
+    table.innerHTML =
+      '<div class="wrow whead"><span>WAVE</span><span>TIME</span><span>HITS</span><span>TAKEN</span><span>BEST</span><span>MARK</span></div>' +
+      waves.map((w) =>
+        `<div class="wrow"><span>${w.wave}</span><span>${w.timeSeconds.toFixed(1)}s</span>` +
+        `<span>${w.hits}</span><span>${w.damageTaken}</span><span>${w.bestCombo}</span>` +
+        `<span class="wmark">${w.grade || '—'}</span></div>`).join('');
+    det.appendChild(table);
+
+    host.innerHTML = '';
+    host.appendChild(det);
+  }
 }
 
-// ----------------------------------------------------------------- SETTINGS
+// ------------------------------------------------------------- DEV TUNING
 
-/** Settings reached from TITLE. The in-run settings live in the pause menu. */
-export class SettingsScreen extends Screen {
+/**
+ * The full tuning editor, unchanged from V0.2.5 and now reachable only with
+ * `?dev=1` (or through the `~` overlay). Players get OPTIONS instead: five
+ * hundred parameters is the right tool for building this game and the wrong
+ * one for playing it.
+ */
+export class DevTuningScreen extends Screen {
   constructor(game) {
-    super('screen-settings', game);
+    super('screen-devtuning', game);
     this.editor = null;
   }
   back() { this.game.toTitle(); }
@@ -230,30 +289,8 @@ export class SettingsScreen extends Screen {
 
     const list = this.root.querySelector('.menu-list');
     list.innerHTML = '';
-    list.appendChild(button('EXPORT PROFILE', () => {
-      const blob = new Blob([Profile.exportJSON()], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'sumi-profile.json';
-      document.body.appendChild(a); a.click(); a.remove();
-    }));
-    list.appendChild(button('IMPORT PROFILE', () => {
-      const inp = document.createElement('input');
-      inp.type = 'file';
-      inp.accept = 'application/json';
-      inp.onchange = async () => {
-        const f = inp.files && inp.files[0];
-        if (!f) return;
-        try { Profile.importJSON(await f.text()); this.show(); }
-        catch (e) { alert('Could not read that profile.'); }
-      };
-      inp.click();
-    }));
+    list.appendChild(button('PLAYER OPTIONS', () => this.game.toOptions()));
     list.appendChild(button('BACK', () => this.game.toTitle()));
     super.show();
   }
-
-  // No update() override: the screen's MenuNav walks the editor's rows too,
-  // now that they are marked as menu items. Two pad handlers fighting over the
-  // same focus was why the parameter tree was unreachable from here.
 }

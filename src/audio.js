@@ -6,6 +6,9 @@
 import * as Tone from 'tone';
 import { TUNING } from './tuning.js';
 
+/** dBFS -> linear gain, floored so -60 is silence rather than a whisper. */
+const dbToGain = (db) => (db <= -60 ? 0 : Math.pow(10, db / 20));
+
 export class AudioSystem {
   constructor() {
     this.ready = false;
@@ -27,31 +30,36 @@ export class AudioSystem {
   buildGraph() {
     const limiter = new Tone.Limiter(-1).toDestination();
     this.out = new Tone.Gain(1).connect(limiter);
-    Tone.getDestination().volume.value = TUNING.audio.masterVolume;
+    // Two buses under the master so a player can pull effects down without
+    // silencing the bed, and vice versa. Music has no sources yet; the bus is
+    // here so that when it does, the mixer already exists.
+    this.sfxBus = new Tone.Gain(1).connect(this.out);
+    this.musicBus = new Tone.Gain(1).connect(this.out);
+    this.applyVolumes();
 
     // --- taiko body: the weight under every impact ---
     this.taiko = new Tone.MembraneSynth({
       pitchDecay: 0.09, octaves: 5,
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.42, sustain: 0, release: 0.08 },
-    }).connect(this.out);
+    }).connect(this.sfxBus);
     this.taiko.volume.value = -2;
 
     // --- shamisen pluck: the bite / attack transient ---
     this.pluck = new Tone.PluckSynth({
       attackNoise: 2, dampening: 3800, resonance: 0.86,
-    }).connect(this.out);
+    }).connect(this.sfxBus);
     this.pluck.volume.value = -6;
 
     // --- koto: pitched motion cues (launcher rises, death falls) ---
     this.koto = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'triangle' },
       envelope: { attack: 0.004, decay: 0.35, sustain: 0.04, release: 0.4 },
-    }).connect(this.out);
+    }).connect(this.sfxBus);
     this.koto.volume.value = -12;
 
     // --- brush/whoosh: bandpassed pink noise ---
-    this.whooshFilter = new Tone.Filter({ type: 'bandpass', frequency: 1200, Q: 1.4 }).connect(this.out);
+    this.whooshFilter = new Tone.Filter({ type: 'bandpass', frequency: 1200, Q: 1.4 }).connect(this.sfxBus);
     this.whoosh = new Tone.NoiseSynth({
       noise: { type: 'pink' },
       envelope: { attack: 0.012, decay: 0.13, sustain: 0 },
@@ -59,7 +67,7 @@ export class AudioSystem {
     this.whoosh.volume.value = TUNING.audio.whiffVolume;
 
     // --- crack: hi-passed white noise, very short. wood-on-bone ---
-    this.crackFilter = new Tone.Filter({ type: 'highpass', frequency: 2400 }).connect(this.out);
+    this.crackFilter = new Tone.Filter({ type: 'highpass', frequency: 2400 }).connect(this.sfxBus);
     this.crack = new Tone.NoiseSynth({
       noise: { type: 'white' },
       envelope: { attack: 0.001, decay: 0.055, sustain: 0 },
@@ -67,7 +75,7 @@ export class AudioSystem {
     this.crack.volume.value = -10;
 
     // --- splat: brown noise, low, wet ---
-    this.splatFilter = new Tone.Filter({ type: 'lowpass', frequency: 700 }).connect(this.out);
+    this.splatFilter = new Tone.Filter({ type: 'lowpass', frequency: 700 }).connect(this.sfxBus);
     this.splat = new Tone.NoiseSynth({
       noise: { type: 'brown' },
       envelope: { attack: 0.002, decay: 0.34, sustain: 0 },
@@ -81,18 +89,32 @@ export class AudioSystem {
       envelope: { attack: 0.001, decay: 0.30, sustain: 0, release: 0.2 },
       modulation: { type: 'square' },
       modulationEnvelope: { attack: 0.001, decay: 0.12, sustain: 0 },
-    }).connect(this.out);
+    }).connect(this.sfxBus);
     this.ping.volume.value = -8;
 
     // --- enemy telegraph drone ---
     this.drone = new Tone.Synth({
       oscillator: { type: 'sawtooth' },
       envelope: { attack: 0.35, decay: 0.1, sustain: 0.5, release: 0.12 },
-    }).connect(this.out);
+    }).connect(this.sfxBus);
     this.drone.volume.value = -24;
 
     this.ready = true;
     return this;
+  }
+
+  /**
+   * Push the tuning volumes onto the graph. Called on build and whenever a
+   * player moves an audio slider — Options calls this through a hook rather
+   * than importing the renderer or the audio module directly.
+   */
+  applyVolumes() {
+    const A = TUNING.audio;
+    try {
+      Tone.getDestination().volume.value = A.masterVolume;
+      if (this.sfxBus) this.sfxBus.gain.value = dbToGain(A.sfxVolume);
+      if (this.musicBus) this.musicBus.gain.value = dbToGain(A.musicVolume);
+    } catch (e) { /* audio may not be started yet; the next build applies it */ }
   }
 
   /** Avoid Tone throwing on identical scheduling times for one voice. */

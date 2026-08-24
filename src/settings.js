@@ -10,8 +10,9 @@
 import { TUNING, TUNING_DEFAULTS, TUNING_RANGES, setTuning, getTuning } from './tuning.js';
 import { Input, ACTIONS, ACTION_LABELS } from './input.js';
 import { describeTuning, describeSection } from './tuningdocs.js';
+import { KEYS } from './storage.js';
 
-const MODE_KEY = 'sumi.editorMode.v1';
+const MODE_KEY = KEYS.editorMode;
 export const EDITOR_MODES = ['sliders', 'fields'];
 
 /** Bounds for a slider. Explicit hint first, else derived from the default. */

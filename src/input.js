@@ -8,6 +8,7 @@
  *     a sim step doesn't cost a whole frame of dead time (gate F1).
  */
 import { TUNING } from './tuning.js';
+import { KEYS } from './storage.js';
 
 export const ACTIONS = ['light', 'launcher', 'heavy', 'dash', 'parry', 'lock', 'jump', 'pause'];
 
@@ -43,7 +44,7 @@ export const DEFAULT_BINDINGS = {
   pause: { keys: ['Escape'], mouse: [], pad: [9] },       // Start
 };
 
-const STORAGE_KEY = 'sumi.bindings.v1';
+const STORAGE_KEY = KEYS.bindings;
 
 /** Is this event target a field the user is typing into? */
 function isEditable(el) {

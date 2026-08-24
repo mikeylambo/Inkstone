@@ -22,6 +22,8 @@
  * @property {string} runHash  RunRecord hash, so an entry points at a real run
  */
 
+import { KEYS } from './storage.js';
+
 /** Shared shape. Both implementations honour this. */
 export class Board {
   /** @param {BoardEntry} entry */
@@ -32,7 +34,7 @@ export class Board {
   async around(entry, n = 5) { throw new Error('not implemented'); }
 }
 
-const KEY = 'sumi.board.v1';
+const KEY = KEYS.board;
 
 export class LocalBoard extends Board {
   constructor(storageKey = KEY) {

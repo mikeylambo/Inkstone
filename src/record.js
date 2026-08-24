@@ -9,6 +9,12 @@
  *   - replay / ghosts, which need the run to be legible, not just repeatable
  *
  * Seed + input log already make a run *reproducible*. This makes it *readable*.
+ *
+ * V0.2.6 adds two things and no new storage: per-wave aggregates are *derived*
+ * from the event stream rather than accumulated alongside it (a second copy of
+ * the same truth is a second thing to keep in sync), and the serialised form
+ * round-trips exactly — gate FR10 — so the replay viewer that does not exist
+ * yet has a format that will not move under it.
  */
 import { TUNING } from './tuning.js';
 
@@ -30,6 +36,9 @@ export const EV = {
 
 export const EV_NAME = Object.fromEntries(Object.entries(EV).map(([k, v]) => [v, k]));
 
+/** Bumped when the event shape changes, so a stored record knows its own age. */
+export const RECORD_FORMAT = 2;
+
 const r2 = (n) => Math.round(n * 100) / 100;
 
 export class RunRecord {
@@ -39,6 +48,12 @@ export class RunRecord {
     this.dropped = 0;          // how many were pushed out of the ring
     this.posEvery = Math.max(1, Math.round(TUNING.sim.hz / TUNING.record.posSampleHz));
     this.lastPosStep = -1e9;
+    /**
+     * Run identity. Carried inside the record so a serialised run is
+     * self-describing — a replay file that needs a second file to make sense
+     * is a file that will be separated from it.
+     */
+    this.meta = { seed: null, mode: null, scroll: null, day: null, version: null, modifiers: [] };
   }
 
   /** Ring push. Oldest events fall off once the cap is reached. */
@@ -54,8 +69,9 @@ export class RunRecord {
   // --------------------------------------------------------------- writers
 
   attackStart(step, key) { return this.push({ t: step, e: EV.ATTACK_START, key }); }
-  hit(step, reaction, dmg, pos) {
-    return this.push({ t: step, e: EV.HIT, r: reaction, d: dmg, x: r2(pos.x), z: r2(pos.z) });
+  /** `c` is the stroke count at the moment of the hit — the per-wave best reads it. */
+  hit(step, reaction, dmg, pos, combo = 0) {
+    return this.push({ t: step, e: EV.HIT, r: reaction, d: dmg, c: combo, x: r2(pos.x), z: r2(pos.z) });
   }
   kill(step, pos) { return this.push({ t: step, e: EV.KILL, x: r2(pos.x), z: r2(pos.z) }); }
   playerHurt(step, dmg, pos) {
@@ -102,10 +118,102 @@ export class RunRecord {
     return n;
   }
 
+  /**
+   * Per-wave aggregates, derived from the stream.
+   *
+   * Reserved slot (Bayonetta grades every verse, not just the chapter). The
+   * numbers are real today; `grade` stays null until the V0.6 evaluator can
+   * fill it, and RESULTS renders the column blank rather than inventing one.
+   *
+   * @returns {Array<{wave, startStep, endStep, timeSeconds, hits, kills,
+   *                  damageTaken, damageDealt, parries, bestCombo, grade}>}
+   */
+  waveStats() {
+    const hz = TUNING.sim.hz;
+    const out = [];
+    let cur = null;
+
+    const open = (waveIndex, step) => {
+      cur = {
+        wave: waveIndex + 1, startStep: step, endStep: step, timeSeconds: 0,
+        hits: 0, kills: 0, damageTaken: 0, damageDealt: 0, parries: 0,
+        bestCombo: 0, grade: null,
+      };
+      out.push(cur);
+    };
+
+    for (const e of this.events) {
+      if (e.e === EV.WAVE) { open(e.w, e.t); continue; }
+      if (!cur) continue;
+      cur.endStep = e.t;
+      switch (e.e) {
+        case EV.HIT:
+          cur.hits++;
+          cur.damageDealt += e.d || 0;
+          if ((e.c || 0) > cur.bestCombo) cur.bestCombo = e.c || 0;
+          break;
+        case EV.KILL: cur.kills++; break;
+        case EV.PLAYER_HURT: cur.damageTaken += e.d || 0; break;
+        case EV.PARRY: cur.parries++; break;
+      }
+    }
+
+    for (const w of out) w.timeSeconds = Math.max(0, (w.endStep - w.startStep) / hz);
+    return out;
+  }
+
   // ---------------------------------------------------------- serialisation
 
+  /**
+   * Canonical form. Key order is fixed and every field is a plain value, so
+   * `stringify(toJSON())` is stable — gate FR10 compares exactly that across a
+   * save/load/save cycle.
+   */
   toJSON() {
-    return { cap: this.cap, dropped: this.dropped, events: this.events };
+    return {
+      format: RECORD_FORMAT,
+      meta: {
+        seed: this.meta.seed ?? null,
+        mode: this.meta.mode ?? null,
+        scroll: this.meta.scroll ?? null,
+        day: this.meta.day ?? null,
+        version: this.meta.version ?? null,
+        modifiers: (this.meta.modifiers || []).map((m) => ({
+          id: m.id, label: m.label ?? null, scoreMul: m.scoreMul ?? 1,
+        })),
+      },
+      cap: this.cap,
+      dropped: this.dropped,
+      events: this.events,
+    };
+  }
+
+  /** Rebuild a record from `toJSON()` output. */
+  static fromJSON(data) {
+    const rec = new RunRecord(data?.cap ?? TUNING.record.maxEvents);
+    if (!data) return rec;
+    rec.cap = data.cap ?? rec.cap;
+    rec.dropped = data.dropped ?? 0;
+    rec.events = Array.isArray(data.events) ? data.events.map((e) => ({ ...e })) : [];
+    const m = data.meta || {};
+    rec.meta = {
+      seed: m.seed ?? null,
+      mode: m.mode ?? null,
+      scroll: m.scroll ?? null,
+      day: m.day ?? null,
+      version: m.version ?? null,
+      modifiers: (m.modifiers || []).map((x) => ({ ...x })),
+    };
+    // a loaded record is a document, not a live log; keep the sampler quiet
+    rec.lastPosStep = rec.events.length ? rec.events[rec.events.length - 1].t : -1e9;
+    return rec;
+  }
+
+  /** Gate FR10, as a function so it can be run from anywhere. */
+  static roundTripsCleanly(rec) {
+    const a = JSON.stringify(rec.toJSON());
+    const b = JSON.stringify(RunRecord.fromJSON(JSON.parse(a)).toJSON());
+    return { ok: a === b, bytes: a.length };
   }
 
   /** FNV-1a over a canonical serialisation. */

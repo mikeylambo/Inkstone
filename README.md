@@ -1,14 +1,17 @@
-# SUMI (codename SlayRank)
+# INKSTONE
 
 A high-impact character-action scoresmith where every sword stroke writes on the
 battlefield, and what you've written changes how the fight plays.
 
-**Current phase: V0.2.5 — The Shell.**
+**Current phase: V0.2.6 — Frame v1.**
 See [REPORT.md](REPORT.md) for gate results.
 
-The frame of the finished game is in place: title, mode select, waves, death,
-results with an exportable scroll print, persistence and a leaderboard
-interface. V0.3–V0.6 fill these slots rather than adding screens.
+The frame now supports both endgames the game is aiming at — a campaign
+(*Pilgrimage*) and a pure scoresmith (*Scrolls*) — with only the second one
+built. Reserved slots are real, walkable screens rather than notes in a design
+doc, so V0.3–V0.6 fill them in without moving the navigation around.
+
+The game was called SUMI through V0.2.5. Saves migrate automatically.
 
 ## Run it
 
@@ -20,8 +23,25 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173. Add `?seed=anything` to the URL to change the
-run seed — same seed + same inputs produce the same run.
+Then open http://localhost:5173. Add `?seed=anything` to change the run seed —
+same seed and same inputs produce the same run. Add `?dev=1` for the raw tuning
+editor.
+
+## The words
+
+The fiction is load-bearing in the UI, so these map one-to-one onto the usual
+genre terms:
+
+| Genre term | INKSTONE |
+| --- | --- |
+| Loadout / meta screen | **The Inkstone** |
+| Mission select | **Scrolls** |
+| Results | **Finished Calligraphy** |
+| Resource | **Pigment** |
+| Super | **Finishing Stroke** |
+| Training | **Kata** |
+| History / collection | **Archive** |
+| Enemy | **Stain** (the Oni Stain) |
 
 ## Controls
 
@@ -36,58 +56,90 @@ run seed — same seed + same inputs produce the same run.
 | Parry | `F` | LB |
 | Lock-on (toggle / cycle) | `Q` or `Tab` | RB |
 | Camera nudge (free cam) | — | Right stick |
-| Pause &amp; settings | `Esc` | Start |
+| Pause | `Esc` | Start |
 | Debug overlay | `` ` `` (backquote) | — |
 
 Lock-on directional moves (while locked):
 
 | Input | Move |
 | --- | --- |
-| toward + light | Stinger — gap-closing thrust |
+| toward + light | Thrust — gap-closing step-in |
 | away + light | High Time — launcher |
 | toward + heavy | Splitter |
 
+The in-game move list (**The Inkstone → Techniques**, also in the pause menu)
+is generated from the real attack table and shows your current bindings, so it
+cannot drift from the actual kit — that is gate FR4.
+
 Movement is camera-relative. In the free camera the movement basis latches
-while the stick is held, so a drifting camera can't curve a held direction. While
-locked on it does not latch — forward always means toward the target and
-sideways strafes around it, so dashing past an enemy turns you back toward them
-instead of sending you away. Jump cancels an attack past its
-`cancelAfter` — that's the jump-cancel air combos are built on.
+while the stick is held, so a drifting camera can't curve a held direction.
+While locked on it does not latch — forward always means toward the target and
+sideways strafes around it. Jump cancels an attack past its `cancelAfter` —
+that's the jump-cancel air combos are built on.
 
-Lock-on is a toggle by default and cycles targets while more than one is alive;
-set `controls.lockIsHold` to 1 for hold-to-lock.
+## Screens
 
-**Esc** (or **Start** on a pad) opens the pause menu. It freezes the sim and
-hosts the full settings editor: every tuning value as a slider or a number field
-(your choice, remembered), a filter box, key/pad rebinding, and a description of
-whatever parameter is selected. The same editor is embedded in the debug
-overlay. Bindings persist in `localStorage`.
+```
+BOOT → TITLE
+TITLE → PLAY · INKSTONE · ARCHIVE · OPTIONS · CREDITS
+PLAY  → PILGRIMAGE (reserved) · SCROLLS · KATA · DAILY SCROLL
+RUN  ⇄ PAUSE → DEATH → FINISHED CALLIGRAPHY → (Again · Play · Title)
+```
 
-The menu is fully controller-driven:
+Every screen, including every placeholder, is reachable and escapable on a
+gamepad alone — gate FR1.
 
-| Pad | Menu action |
-| --- | --- |
-| D-pad / left stick | Move the selection (hold to repeat) |
-| Left / Right | Nudge the selected value |
-| LB + Left/Right | Nudge it in bigger steps |
-| A | Open a group, or start rebinding |
-| B | Close |
-| Start | Close |
+**THE INKSTONE** — `TECHNIQUES · STROKES · FINISHING STROKE · PIGMENT · RECORD`.
+Techniques is real. The rest are reserved and say so.
 
-## Modes
+**ARCHIVE** — `SCROLL GALLERY · RECORDS · INK RECORD · LEADERBOARDS`. The
+gallery keeps your last 20 run prints as PNGs in IndexedDB; each is viewable,
+exportable and deletable. Records and Leaderboards are real; the Ink Record
+(bestiary) has one unfinished entry.
 
-| Mode | Seed | Structure | Death |
+**PAUSE** — `RESUME · RESTART · RETURN TO SCROLLS · TITLE · ABANDON`, plus the
+move list and Player Options. Context-aware: Kata hides the scroll and abandon
+options, and Daily's restart re-seeds today rather than rolling a new seed.
+
+## Options vs dev tuning
+
+There are two settings surfaces and they are not the same thing.
+
+**OPTIONS** is what players get: gameplay, controls, audio, visual and
+accessibility, grouped and written in plain language. Each option maps to real
+tuning paths through an explicit allowlist, so it is a curated *view* over
+tuning rather than a fork of it. Choices persist and are re-applied on boot.
+
+Accessibility covers screen shake, hit-stop, flash, camera motion,
+high-contrast enemy tells, text size and hold→toggle swaps. All of them are
+1.0 (off) by default and applied at a single chokepoint each, so the shipped
+game is unchanged until you move one.
+
+> One caveat worth knowing: **hit-stop is part of the simulation**, not a
+> visual effect. Lowering it genuinely changes the fight, so a run at anything
+> other than 100% is not comparable to a leaderboard run. The option says so.
+
+**DEV TUNING** is the full ~550-parameter editor. It lives behind `?dev=1` and
+in the `` ` `` debug overlay, and never appears in the pause menu.
+
+## Modes and scrolls
+
+| Scroll / mode | Seed | Structure | Death |
 | --- | --- | --- | --- |
 | **DAILY SCROLL** | UTC date — same for everyone, rolls at midnight UTC | Escalating waves | Ends the run |
-| **FREE** | Random, or type your own to replay a fight exactly | Escalating waves | Ends the run |
-| **KATA** | Random | No waves. One oni, endlessly replaced | Respawns in place |
+| **ENDLESS** | Random | Escalating waves | Ends the run |
+| **FREE SEED** | Yours, typed | Escalating waves | Ends the run |
+| **KATA** | Random | No waves. One Stain, endlessly replaced | Respawns in place |
+| SCROLL I–III | — | Unwritten | — |
 
 KATA is the V0.2 build preserved as a practice mode — it plays exactly as it
 did, including respawn-in-place, and is not scored.
 
-Waves come from `TUNING.waves.table` (10 authored waves), then escalate: +1
-enemy and ×0.95 rest per wave, capped. Each wave ends with a breather that
-heals nothing.
+Waves come from `TUNING.waves.table` (10 authored waves), then escalate.
+Difficulty (`UNWRITTEN / STANDARD / BLOOD INK / MASTER / VOID`) is reserved with
+only STANDARD selectable; its hooks are wave-table and aggression multipliers,
+deliberately *not* HP and damage sliders — scaling numbers makes a fight
+longer, not different.
 
 ## Layout
 
@@ -95,59 +147,73 @@ heals nothing.
 src/
   tuning.js          EVERY number in the game. No magic numbers in systems.
   main.js            Fixed-timestep loop (60 Hz sim, decoupled render)
-  world.js           Shared mutable context
+  world.js           Shared mutable context; the hit-stop chokepoint
   rng.js             Seeded PRNG — all sim randomness comes from here
   input.js           Keyboard + mouse + gamepad, with input buffering
-  audio.js           Procedural Tone.js — one signature per attack class
+  audio.js           Procedural Tone.js, master/music/sfx buses
   camera.js          Lock-on framing, trauma shake, FOV punch
-  hud.js             Vitals, target, stroke counter
-  debug.js           `~` overlay: state, hitboxes, embedded settings editor
-  game.js            App state machine: BOOT/TITLE/RUN_SETUP/RUN/PAUSE/DEATH/RESULTS
+  hud.js             Vitals, target, stroke counter, reserved pigment slot
+  debug.js           `~` overlay: state, hitboxes, embedded tuning editor
+  game.js            App state machine — the only owner of "what's happening"
   run.js             One attempt: rng, fx, enemies, waves, score, record
-  record.js          RunRecord — sim-stamped event log, the substrate for V0.3+
+  record.js          RunRecord — sim-stamped log, per-wave stats, round-trips
   score.js           Scoring, and the V0.6 style-evaluator slot
-  profile.js         localStorage profile: bests per mode, export/import
+  profile.js         Profile v2: bests, reserved progression namespace
+  storage.js         Storage keys and the one-release SUMI→INKSTONE migration
   board.js           Leaderboard interface — LocalBoard now, SupabaseBoard stub
-  screens.js         Title / mode select / death / results / settings screens
+  gallery.js         Scroll Gallery — run prints in IndexedDB
+  scrolls.js         The scroll table and the reserved difficulty axis
+  techniques.js      The move list, as data + the TechniqueList component
+  playeroptions.js   Curated player options over an allowlist of tuning paths
+  screens.js         Title / setup / death / results / dev tuning
+  ui/screen.js       Screen + TabbedScreen base, one MenuNav per screen
+  ui/play.js         Play select, scroll select, reserved wave choice
+  ui/meta.js         The Inkstone, Archive, Options, Credits, placeholders
   print.js           The scroll print and its PNG export
   menunav.js         Pad-navigable menus
-  settings.js        The settings editor — sliders/fields, rebinding, pad nav
+  settings.js        The dev tuning editor — sliders/fields, rebinding, pad nav
   tuningdocs.js      Plain-language description for every parameter
   exportaudio.js     Dev: bounce the procedural audio to WAV
-  pause.js           Esc pause menu, hosts the same editor
+  pause.js           Pause menu: move list + player options
   anim/poses.js      Key-poses + phase-space attack tracks
   combat/attacks.js  Attack identity (track, sound, trail, stroke type)
   combat/hits.js     Hit resolution and every hit-reaction class
   entities/player.js Player kit and state machine
   entities/oni.js    Enemy 1 — Oni Stain
   gfx/               Materials, arena, pooled effects
-  gfx/slashfan.js    The stylized attack mark — where impact comes from
-  gfx/trail.js       Ribbon: the physical blade path, secondary to the fan
+  gfx/slashfan.js    The stylized attack mark
+  gfx/trail.js       Ribbon: the swept blade path — the hero trail
 tools/shotserver.mjs Dev-only screenshot sink (see below)
 ```
 
 ### Tuning
 
 `src/tuning.js` is the single source of truth for timings, ranges, forces,
-thresholds and decay rates. Open the debug overlay with `` ` `` to edit any of
-them live; "reset tuning" restores the shipped values. Attack durations are
-always derived (`attackDuration()`), never hand-written, and the animation
-tracks are authored in *phase space* so retiming an attack in tuning retimes its
-animation for free.
+thresholds and decay rates. Attack durations are always derived
+(`attackDuration()`), never hand-written, and the animation tracks are authored
+in *phase space* so retiming an attack in tuning retimes its animation for free.
+
+The file is divided: combat feel above the V0.2.5 marker, run structure and
+frame below it. Combat sections are expected to stay diff-clean through frame
+work — gate FR6.
 
 ### Determinism
 
 The sim runs at a fixed 60 Hz decoupled from render, with hit-stop consuming
 whole sim steps. All sim-side randomness goes through `Rng`. Same seed + same
-inputs produce a byte-identical run — verified in REPORT.md.
+inputs produce a byte-identical run — verified in REPORT.md. `RunRecord`
+serialisation round-trips exactly (gate FR10) so the future replay viewer has a
+format that will not move under it.
 
 ### Dev tooling
 
-`window.SUMI` exposes `World`, `TUNING`, `simStep`, `spawnOni`, `killAll`,
-`resetArena` and a headless `run(steps, {move, press})` driver for scripted
-verification without the render loop.
+`window.INKSTONE` (aliased as `window.SUMI`) exposes `World`, `TUNING`,
+`simStep`, `STEP` and a headless `run(steps, {move, press})` driver for
+scripted verification without the render loop. Note that `run()` consumes
+hit-stop the way the render loop does and `simStep()` alone does not — drive
+through `run()` when hit-stop matters.
 
-`tools/filesink.mjs` is the sink used by `SUMI.exportAudio()`, which renders
+`tools/filesink.mjs` is the sink used by `INKSTONE.exportAudio()`, which renders
 every procedural sound to a 32-bit float WAV under `export/`. The game ships no
 audio assets — everything is synthesised by `src/audio.js` at runtime — so this
 is how you get the sounds into a DAW.

@@ -52,6 +52,16 @@ export class MenuNav {
 
   move(delta) { this.focus(this.index + delta); }
 
+  /**
+   * Re-seat focus after the screen's contents changed under it (a tab swap, a
+   * group opening). Without this the index still points into the old list and
+   * the first D-pad press jumps somewhere arbitrary.
+   */
+  refocus(i = 0) {
+    if (!this.active) return;
+    this.focus(i);
+  }
+
   activate() {
     const items = this.items();
     const el = items[this.index];

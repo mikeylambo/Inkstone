@@ -22,7 +22,23 @@ export class Hud {
     this.runMode = document.getElementById('run-mode');
     this.runScore = document.getElementById('run-score');
     this.waveBanner = document.getElementById('wave-banner');
+    this.hints = document.getElementById('controls');
+    /** Reserved: pigment ships in V0.5. Present, hidden, never written. */
+    this.pigmentSlot = document.getElementById('pigment-slot');
+    this.pigmentValue = document.getElementById('pigment-value');
     this.shownBanner = null;
+  }
+
+  /**
+   * Show or hide the run's pigment readout. Nothing calls this yet — it is
+   * here so the HUD does not need re-laying-out when pigment arrives.
+   * @param {number|null} v 0..1, or null to hide
+   */
+  setPigment(v) {
+    if (!this.pigmentSlot) return;
+    if (v == null) { this.pigmentSlot.style.display = 'none'; return; }
+    this.pigmentSlot.style.display = '';
+    this.pigmentValue.textContent = `${Math.round(v * 100)}%`;
   }
 
   update(camera, game) {
@@ -32,6 +48,8 @@ export class Hud {
     const hpPct = (p.hp / TUNING.player.maxHp) * 100;
     this.hpBar.style.width = `${Math.max(0, hpPct)}%`;
     this.hpText.textContent = `${Math.round(p.hp)} / ${TUNING.player.maxHp}`;
+
+    if (this.hints) this.hints.classList.toggle('hidden', !TUNING.frame.hints);
 
     this.combo.textContent = `${World.combo} STROKE${World.combo === 1 ? '' : 'S'}`;
     this.lockState.textContent = World.lockTarget ? 'LOCKED' : 'FREE';

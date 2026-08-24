@@ -55,9 +55,13 @@ export class CameraRig {
    */
   addTrauma(amount, dir = null, kickAmount = null) {
     const C = TUNING.camera;
-    this.trauma = Math.min(C.traumaMax, this.trauma + amount);
+    const A = TUNING.access;
+    // Every shake in the game arrives here, so the accessibility scalars are
+    // applied once, at the door. Both default to 1.0.
+    const amt = amount * A.shakeScale;
+    this.trauma = Math.min(C.traumaMax, this.trauma + amt);
     if (dir) {
-      const k = kickAmount != null ? kickAmount : amount * C.kickScale;
+      const k = (kickAmount != null ? kickAmount : amount * C.kickScale) * A.camMotionScale;
       this.kick.addScaledVector(dir, k);
     }
   }
