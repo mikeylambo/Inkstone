@@ -521,6 +521,22 @@ export const TUNING_RANGES = {
   'camera.playerBias': [0, 1, 0.01],
   'camera.fov': [30, 100, 1],
   'sim.hz': [30, 120, 1],
+  // Count-typed values: without an explicit step the editor infers one from
+  // magnitude and hands you a fractional loop count.
+  'sim.maxStepsPerFrame': [1, 12, 1],
+  'player.maxHp': [1, 500, 1],
+  'oni.maxHp': [1, 500, 1],
+  'parry.inkBurstCount': [0, 80, 1],
+  'fx.maxParticles': [0, 1000, 1],
+  'fx.maxInkPools': [0, 100, 1],
+  'fx.maxDecals': [0, 200, 1],
+  'fx.trailSamples': [8, 400, 1],
+  'fx.trailLayers': [1, 8, 1],
+  'fx.trailMaxSubSamples': [1, 64, 1],
+  'spawn.baseCount': [1, 16, 1],
+  'waves.escalation.countAdd': [0, 8, 1],
+  'waves.escalation.countMax': [1, 32, 1],
+  'record.maxEvents': [1000, 200000, 1000],
 };
 
 /** Frozen copy so the debug panel can offer "reset to shipped value". */

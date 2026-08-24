@@ -5,6 +5,7 @@
 import { World } from './world.js';
 import { Input, ACTIONS } from './input.js';
 import { SettingsEditor } from './settings.js';
+import { MenuNav } from './menunav.js';
 
 export class PauseMenu {
   constructor() {
@@ -12,6 +13,11 @@ export class PauseMenu {
     this.body = document.getElementById('pause-body');
     this.editor = null;
     this.game = null;          // set by Game once it exists
+    // One nav over the whole panel: RESTART/ABANDON/RESUME live in the head,
+    // outside the editor's root, so an editor-owned nav could never reach them.
+    this.nav = new MenuNav(document.getElementById('pause-panel'), {
+      onBack: () => this.close(),
+    });
 
     const resume = document.getElementById('pause-resume');
     if (resume) resume.onclick = () => this.close();
@@ -36,18 +42,21 @@ export class PauseMenu {
     this.el.classList.remove('hidden');
     if (!this.editor) this.editor = new SettingsEditor(this.body);
     else this.editor.refresh();
-    this.editor.focusFirst();
+    this.nav.enter();
   }
 
   /** Called every rendered frame while paused, so a pad can drive the menu. */
   update(dt) {
-    if (!World.paused || !this.editor) return;
-    if (this.editor.handleGamepad(dt) === 'close') this.close();
+    if (!World.paused) return;
+    this.nav.update(dt);
   }
+
+  handleKey(e) { return this.nav.handleKey(e); }
 
   close() {
     World.paused = false;
     Input.clearAll();
+    this.nav.exit();
     this.el.classList.add('hidden');
   }
 }

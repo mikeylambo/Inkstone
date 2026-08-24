@@ -253,13 +253,7 @@ export class SettingsScreen extends Screen {
     super.show();
   }
 
-  update(dt) {
-    super.update(dt);
-    // the settings editor has its own pad handling; let it drive while focus
-    // is inside the parameter tree
-    if (this.editor && document.activeElement &&
-        this.root.querySelector('.settings-body')?.contains(document.activeElement)) {
-      if (this.editor.handleGamepad(dt) === 'close') this.game.toTitle();
-    }
-  }
+  // No update() override: the screen's MenuNav walks the editor's rows too,
+  // now that they are marked as menu items. Two pad handlers fighting over the
+  // same focus was why the parameter tree was unreachable from here.
 }

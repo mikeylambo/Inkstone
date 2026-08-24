@@ -154,6 +154,10 @@ export class SettingsEditor {
   /** Register an element as focusable for pad/keyboard navigation. */
   nav(el, path, text) {
     el.tabIndex = 0;
+    // Marked so the screen's MenuNav walks these too. Previously the editor
+    // ran its own pad handling and MenuNav could not see into it, so a pad
+    // could reach the section headers and nothing below them.
+    el.setAttribute('data-menu-item', '');
     if (text) el.title = text;
     // carried on the element so navigation can update the strip directly
     // rather than relying on a focus event, which is not delivered when the

@@ -88,6 +88,48 @@ Every step landed. START paused and resumed from RUN. "Again" latency 35 ms.
 All shell screens route through `MenuNav`, which reads the pad directly with
 its own repeat timing.
 
+#### What S2 missed, and the follow-up fix
+
+The gate walked the *spine* of the loop, so it passed while three pad paths
+were still dead. Playtesting found all three:
+
+* D-pad could reach the `sim` group in settings but not walk into or past it
+* SETTINGS was unreachable from TITLE with a pad
+* RESTART / ABANDON / RESUME in the pause menu could not be focused
+
+One root cause: **two navigation systems fighting over the same focus.**
+`MenuNav` only walks elements marked `[data-menu-item]`, and the settings
+editor built its rows without that mark while running its own pad handler.
+Where both were live they cancelled out; where only the editor's was live the
+pause menu's head buttons — which sit *outside* the editor's root — were
+unreachable by construction.
+
+Now there is exactly one nav per screen:
+
+* `SettingsEditor.nav()` marks every row `[data-menu-item]`
+* `SettingsScreen`'s competing `update()` override is gone
+* `PauseMenu` owns a `MenuNav` over `#pause-panel`, so head buttons and editor
+  rows share one focus ring
+* `MenuNav.activate()` toggles a `<summary>` open; new `MenuNav.adjust()` puts
+  left/right on sliders and number fields, with LB for coarse steps
+
+Verified with a synthetic pad, no keyboard or mouse:
+
+| path | result |
+| --- | --- |
+| TITLE → down ×2 → A | SETTINGS, 617 nav items |
+| focus `sim` → A → down ×3 | `sim.hz`, `sim.maxStepsPerFrame`, `sim.maxFrameDelta`, then on to `player` |
+| D-right / D-left on a slider | 5 → 5.05 → 5, LB gives a bigger step |
+| pause → RESTART → A | fresh run, state RUN |
+| pause → ABANDON → A | state RESULTS |
+| pause → RESUME → A | state RUN, unpaused |
+
+While in there: count-typed parameters (`sim.maxStepsPerFrame`, `fx.trailLayers`,
+`waves.escalation.countMax`, …) had no entry in `TUNING_RANGES`, so the editor
+inferred a step from magnitude and handed you a fractional loop count. They now
+carry explicit integer hints and step by 1. Float parameters are unchanged —
+`camera.playerBias` still steps 0.01.
+
 ### ✅ S3 — same daily seed twice = identical wave spawns
 
 Two runs on the same daily seed, both driven for 3,600 sim steps with enemies

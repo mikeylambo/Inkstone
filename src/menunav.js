@@ -55,7 +55,36 @@ export class MenuNav {
   activate() {
     const items = this.items();
     const el = items[this.index];
-    if (el) el.click();
+    if (!el) return;
+    if (el.tagName === 'SUMMARY') {
+      // A toggles a parameter group open or shut
+      el.parentElement.open = !el.parentElement.open;
+      return;
+    }
+    el.click();
+  }
+
+  /**
+   * Left/right on the focused item. Sliders and number fields nudge; a
+   * collapsed group opens. This is what makes the parameter tree usable on a
+   * pad rather than merely reachable.
+   */
+  adjust(dir, coarse) {
+    const el = document.activeElement;
+    if (!el) return false;
+
+    if (el.tagName === 'SUMMARY') {
+      el.parentElement.open = dir > 0;
+      return true;
+    }
+    if (el.tagName === 'INPUT' && (el.type === 'range' || el.type === 'number')) {
+      const step = (parseFloat(el.step) || 0.01) * (coarse ? TUNING.ui.sliderCoarseMul : 1);
+      const next = (parseFloat(el.value) || 0) + step * dir;
+      el.value = String(+next.toFixed(6));
+      el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change', { bubbles: true }));
+      return true;
+    }
+    return false;
   }
 
   /** Called once per rendered frame while this screen is up. */
@@ -77,6 +106,8 @@ export class MenuNav {
 
     if (rep('up', pad.up)) this.move(-1);
     if (rep('down', pad.down)) this.move(1);
+    if (rep('left', pad.left)) this.adjust(-1, pad.coarse);
+    if (rep('right', pad.right)) this.adjust(1, pad.coarse);
 
     // edge-triggered so a held button cannot fire twice
     if (pad.accept && !this.prevAccept) this.activate();
@@ -92,6 +123,8 @@ export class MenuNav {
     switch (e.code) {
       case 'ArrowUp': case 'KeyW': this.move(-1); return true;
       case 'ArrowDown': case 'KeyS': this.move(1); return true;
+      case 'ArrowLeft': return this.adjust(-1, e.shiftKey);
+      case 'ArrowRight': return this.adjust(1, e.shiftKey);
       case 'Enter': case 'Space': this.activate(); return true;
       case 'Escape': if (this.onBack) { this.onBack(); return true; } return false;
       default: return false;

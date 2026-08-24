@@ -58,8 +58,8 @@ export class Game {
     };
 
     window.addEventListener('keydown', (e) => {
-      const s = this.screens[this.state];
-      if (s && s.handleKey && s.handleKey(e)) e.preventDefault();
+      const target = this.state === STATE.PAUSE ? this.pauseMenu : this.screens[this.state];
+      if (target && target.handleKey && target.handleKey(e)) e.preventDefault();
     });
   }
 
