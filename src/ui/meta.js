@@ -7,7 +7,10 @@
  * and a tab that shows a fake economy is not.
  */
 import { Screen, TabbedScreen, button, unwrittenPanel } from './screen.js';
-import { TechniqueList } from '../techniques.js';
+import { TechniqueList, strokeDiagram } from '../techniques.js';
+import { ATTACK_META } from '../combat/attacks.js';
+import { INK } from '../strokes.js';
+import { TUNING } from '../tuning.js';
 import { OptionsEditor } from '../playeroptions.js';
 import { Profile } from '../profile.js';
 import { Gallery } from '../gallery.js';
@@ -42,8 +45,7 @@ export class InkstoneScreen extends TabbedScreen {
         break;
       }
       case 'strokes':
-        host.appendChild(unwrittenPanel('STROKES',
-          'A stroke is what a movement leaves on the ground. None are registered yet.'));
+        host.appendChild(strokesPanel());
         break;
       case 'finisher':
         host.appendChild(unwrittenPanel('FINISHING STROKE',
@@ -58,6 +60,67 @@ export class InkstoneScreen extends TabbedScreen {
         break;
     }
   }
+}
+
+/**
+ * STROKES — what the kit writes, and how ink behaves once written.
+ *
+ * Built from ATTACK_META and TUNING.ink rather than hand-written, so a retuned
+ * lifecycle or a re-authored stroke updates this page without anyone
+ * remembering to. The reference a player actually needs here is not a list of
+ * shapes; it is *how long they have* before wet ink sets.
+ */
+function strokesPanel() {
+  const el = document.createElement('div');
+  el.className = 'strokes-panel';
+
+  const I = TUNING.ink;
+  const k = Math.max(0.05, I.lifecycleScale);
+  const phases = [
+    [INK.FRESH, I.freshTime * k, 'The instant of laying.'],
+    [INK.WET, I.wetTime * k, 'Slippery. Dash across it to skate; a dash begun on wet ink slides further.'],
+    [INK.SET, I.setTime * k, 'Solid. A heavy mark turns a charge and can splatter what runs into it.'],
+    [INK.DRY, I.dryTime * k, 'A mark only. Still solid, no longer slick.'],
+    [INK.FADED, I.fadeTime * k, 'Gone.'],
+  ];
+
+  const life = document.createElement('div');
+  life.className = 'ink-life';
+  life.innerHTML = '<h3>THE LIFE OF A MARK</h3>' + phases.map(([name, secs, line]) =>
+    `<div class="ink-phase ink-${name}">` +
+    `<span class="ink-name">${name.toUpperCase()}</span>` +
+    `<span class="ink-secs">${secs.toFixed(1)}s</span>` +
+    `<span class="ink-line">${line}</span></div>`).join('');
+  el.appendChild(life);
+
+  const marks = document.createElement('div');
+  marks.className = 'ink-marks';
+  marks.innerHTML = '<h3>THE MARKS</h3>';
+  for (const [key, meta] of Object.entries(ATTACK_META)) {
+    if (!meta.ink) continue;
+    const row = document.createElement('div');
+    row.className = 'ink-mark';
+    const box = document.createElement('div');
+    box.className = 'tech-geo';
+    const d = strokeDiagram(meta.ink);
+    if (d) box.appendChild(d);
+    const body = document.createElement('div');
+    body.innerHTML =
+      `<div class="ink-mark-name">${meta.label}</div>` +
+      `<div class="ink-mark-sub">${meta.ink.type}` +
+      `${meta.ink.pillar ? ' · sets solid' : ''}` +
+      ` · ${meta.ink.width.toFixed(2)}m weight</div>`;
+    row.append(box, body);
+    marks.appendChild(row);
+  }
+  el.appendChild(marks);
+
+  const note = document.createElement('p');
+  note.className = 'meta-note';
+  note.textContent = 'Airborne strokes leave nothing: ink touches the floor when the blade does. ' +
+    'The falling stroke is the exception, and it is the one that lands.';
+  el.appendChild(note);
+  return el;
 }
 
 /** Lifetime numbers the profile already knows. Thin on purpose. */
@@ -237,13 +300,23 @@ function recordsPanel() {
 function inkRecordPanel() {
   const el = document.createElement('div');
   el.className = 'ink-record';
-  const card = document.createElement('div');
-  card.className = 'ink-entry';
-  card.innerHTML =
-    '<div class="ink-kanji">鬼</div>' +
-    '<div class="ink-body"><div class="ink-name">ONI STAIN</div>' +
-    '<div class="ink-line">A study begun and not finished. Its tells are known; its name is not.</div></div>';
-  el.appendChild(card);
+  const entries = [
+    ['鬼', 'ONI STAIN',
+     'Closes, plants, and swings once with its whole weight. Its horns brighten before it commits. ' +
+     'Solid ink turns it aside, and something thrown hard enough into a set mark stays there.'],
+    ['天', 'TENGU STAIN',
+     'Keeps its distance and throws. What it throws is not really aimed at you — it is aimed at the floor, ' +
+     'and wet enemy ink drags at the feet. Its beak brightens before it looses.'],
+  ];
+  for (const [kanji, name, line] of entries) {
+    const card = document.createElement('div');
+    card.className = 'ink-entry';
+    card.innerHTML =
+      `<div class="ink-kanji">${kanji}</div>` +
+      `<div class="ink-body"><div class="ink-name">${name}</div>` +
+      `<div class="ink-line">${line}</div></div>`;
+    el.appendChild(card);
+  }
   const note = document.createElement('p');
   note.className = 'meta-note';
   note.textContent = 'Entries fill in as Stains are met and studied.';

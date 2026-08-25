@@ -1,3 +1,232 @@
+# V0.3 — The Canvas Exists · Phase Report
+
+Falsifiable question: **does fighting visibly change my next thirty seconds?**
+
+The mechanical answer is now yes, and measurably so: a light string lays three
+crossing marks, those marks stay wet for 2.1s, dashing across wet ink is 36%
+faster and lasts 55% longer, and a heavy mark sets solid and turns an oni's
+charge. Whether it *reads* as that while playing is G3.1–G3.3, which need your
+eyes and are called out at the bottom.
+
+## Architecture — the constraint that shaped everything
+
+The binding rule from the brief was that **strokes are sim objects, not render
+objects**, and never derived from ribbon vertices. That is not a style
+preference; the ribbon is sampled by distance travelled at render time, so a
+canvas derived from it would be a function of frame rate and replay would drift
+apart from the run it claims to reproduce.
+
+So `src/strokes.js` holds plain numbers and no THREE objects, creates every
+stroke from `(position, facing, attack type)` inside the fixed step, and uses no
+rng at all — which is what makes `hash()` mean something. `src/gfx/inkcanvas.js`
+is a pure view: it reads the registry every rendered frame and writes one
+geometry, and there is no path back.
+
+Stroke geometry is authored in `ATTACK_META` alongside the trail colour, in the
+same place and the same idiom as the fan and ribbon authoring:
+
+```js
+light2: {
+  trail: 0xb91c1c, stroke: 'horizontal',
+  ink: { kind: 'arc', type: 'horizontal', reach: 2.6, sweep: 1.85,
+         width: 0.44, offset: 0, tilt: 0.95 },
+}
+```
+
+**One rule decides which attacks mark the floor: ink touches the floor when the
+blade does.** Airborne attacks lay nothing. The dive is the exception, and it is
+exactly the attack that ends on the ground — it lays on the slam, not the apex.
+
+## What was built
+
+**Stroke registry** — `{id, type, owner, a, b, arc, width, pillar, bornStep,
+state}`, with the lifecycle `Fresh → Wet → Set → Dry → Faded` driven from
+`TUNING.ink`. The readability cap (`maxLive: 44`) pushes the oldest strokes into
+an accelerated fade rather than popping them, because a mark vanishing under
+your feet reads as a bug.
+
+**Query API, built for a consumer that does not exist yet.** V0.4's relational
+glyph checks need "what is near here, of this type, laid within this window", so
+`strokesNear(pos, r, opts)` and `byType(type, opts)` both take a `window` in sim
+steps even though nothing passes one today. `pillarSurfaces()` returns
+`{position, radius, height}` — the exact shape the oni's wall-splat already
+understands, so solid ink needed no second collision path.
+
+**Record integration** — `strokePlaceholder` is gone; `record.stroke(step, s)`
+writes one event per mark with its width and owner. The record's shape survived
+its first real consumer with one addition (`w`/`o`), which is the pressure test
+V0.2.5 flagged as missing.
+
+**The print became the subject.** It was a drawing of where you walked with an
+empty stroke layer. Now the ink is drawn first and heaviest — weighted by each
+stroke's real width in metres converted to paper pixels, enemy splotches in a
+grey wash underneath, the movement path demoted to a faint thread. This is the
+phase where the scroll became worth keeping.
+
+**Wet-ink skate** — multipliers onto the existing dash, never a second dash
+state. A dash *starting* on wet ink extends into a slide; crossing *into* wet
+ink mid-dash keeps the skate alive, so a line of your own ink is a rail.
+
+**Set-ink pillar** — grounded heavy and dive lay `pillar: true` marks. While
+Set or Dry they push an approaching oni aside and present as splat surfaces, so
+something knocked into your own two-second-old heavy mark splatters on it.
+
+**Enemy 2 — Tengu Stain.** Ranged, holds a ring, retreats if you close. What it
+throws is not really aimed at you: it is aimed at the floor, and a wet enemy
+splotch drags you to 62% speed while the oni walks in. Telegraph grammar is
+deliberately identical to the oni's — flare grows over a windup, tell colour
+shifts past halfway, one committed active window, a punishable recovery. A new
+enemy should be new information, not new rules for reading information. Authored
+into waves 4+ as weights (`['oni','oni','tengu']`), so the ratio is data.
+
+**Slots filled rather than added:** the technique `geometry` slot now draws a
+real SVG diagram from the same `ink` descriptor the registry uses (so the
+diagram cannot disagree with the mark), the Inkstone STROKES tab is live, the
+bestiary has both Stains, KATA's setup gained ink on/off and lifecycle speed,
+and the debug overlay's `live strokes` readout stopped saying "not built".
+
+## Gates
+
+### ✅ G3.4 — stroke registry hash identical across same-seed replays
+
+Same seed, same scripted inputs, twice; then a different seed:
+
+```
+seed 'g34'  run A   canvas 912f9070   36 laid, 25 live, 0 culled
+seed 'g34'  run B   canvas 912f9070   36 laid, 25 live, 0 culled   identical ✓
+seed 'different'    canvas differs                                  ✓
+```
+
+A longer mixed run including dashes hashes identically too, canvas **and** run
+record together: `canvas 04fc28df / run 4b981265`, twice.
+
+### ✅ G3.5 — the print shows the run's actual strokes, and the gallery saves it
+
+A 26-stroke run to RESULTS: 26 `EV.STROKE` events in the record, print rendered
+at 560×560 with 2.1% dark pixels, auto-saved to the Scroll Gallery (found on the
+first 150 ms poll). Tengu splotches reach the record too, tagged `o: 1`:
+
+```
+{ e:9, s:'puncture', o:1, w:2.7, x:0.34, z:6.2, x2:1.29, z2:6.2 }
+```
+
+### ✅ G3.6 — 60fps with a full canvas and 8 enemies (measured)
+
+Canvas filled to the cap (44 live strokes), 10 enemies alive (5 oni, 3 tengu,
+2 from the wave — more than the gate asks):
+
+| | ms/frame |
+| --- | --- |
+| `simStep` | 0.043 |
+| `inkCanvas.update` | 0.036 |
+| `renderer.render` | 1.092 |
+| **total** | **1.17** |
+| 60fps budget | 16.67 |
+| **headroom** | **15.5** |
+
+The canvas's own cost, isolated by rendering the same scene with `ink.enabled=0`:
+**0.26 ms of render + 0.036 ms of update**, in **1 draw call / 542 triangles**
+against a scene total of 113 calls / 3,986 triangles.
+
+> **Honest caveat on this number.** The verification browser here cannot
+> composite, so this is CPU + GPU-submit time per frame, not a vsync'd fps
+> reading. It does not include compositor cost or GPU stalls. What it does show
+> is that the canvas is nowhere near the budget — 0.3 ms against 16.67 — which
+> is the question the gate was asking. A real fps capture is still worth taking
+> on your machine.
+
+### ⏳ G3.1 — blind clip: a viewer can point to where the fight happened
+
+**Needs your eyes.** Nothing I can measure answers this. The mechanical
+precondition is met — marks persist for ~11.9 s through their lifecycle and the
+cap keeps 44 of them alive — but "a viewer can point at it" is a judgement about
+legibility.
+
+### ⏳ G3.2 — a player uses wet-ink skating deliberately within 3 runs
+
+**Needs a player.** What I can report is that the reward is real and large:
+
+| | dash off ink | dash on wet ink |
+| --- | --- | --- |
+| peak speed | 24.47 | **33.21** (+36%) |
+| duration | 0.170 s | **0.264 s** (+55%) |
+| distance | 6.47 m | **8.27 m** |
+
+and that it engages *only* on ink (verified both ways). Whether it is
+*discoverable* in three runs is the open question — see below.
+
+### ⏳ G3.3 — canvas readable at 8 enemies / 60s continuous fighting
+
+**Needs a clip.** The cap holds (44 live, oldest fading early rather than
+popping) and perf is not the constraint. Readability is a look judgement.
+
+## Two bugs my own tests caught
+
+**1. `flip` was a no-op.** I authored light2 with `flip: true` and commented
+that it "crosses the first — the shape V0.4 reads as a Cross." My own crossing
+test returned false. Reversing an arc's sweep direction draws *the identical
+arc backwards*: light2 was repainting light1's line. Replaced with a real
+angular `tilt` that swings the arc off the facing axis. Now:
+
+```
+light1 × light2  ✓    light2 × light3  ✓    light1 × light3  ✓
+light1 × heavy   ✓  (heavy tilts the other way)
+```
+
+**2. Ink collision used the wrong geometry.** `distanceTo` treated an arc as its
+chord. A wide slash's chord runs up to `r(1 − cos(sweep/2))` inside its curve —
+about **0.9 m** measured for a light arc — so the game would have said "you are
+on ink" somewhere the player can plainly see there is none, and skating would
+have felt broken and arbitrary. Arcs now measure against the curve:
+
+```
+distance to a point on the drawn curve : 0.0000  → covered ✓
+distance to the chord midpoint         : 0.898   → not covered ✓
+```
+
+That one mattered: it is the difference between skating being a mechanic and
+skating being a superstition.
+
+## Things worth flagging
+
+**Skating may not be discoverable (G3.2 risk).** Your ink is laid in an arc
+*2.5 m in front of you*, so you are never standing on your own mark at the
+moment you finish a swing — you have to walk or dash back onto it. The mechanic
+works and rewards well, but the natural rhythm of attacking does not put you on
+your own ink. If three testers miss it, the cheapest fixes in order are: widen
+`ink.skateProbe` (currently 0.55 m of slack), pull the light arcs' `offset`
+back toward the player, or give wet ink a stronger visual cue than the current
+22% vermilion tint.
+
+**Ink lifecycle vs the wave rhythm is unplayed.** Wet is 2.1 s and a mark lives
+~11.9 s total. Those were tuned so ink is still wet while you finish a string,
+but nobody has felt them against real wave pacing. `TUNING.ink.lifecycleScale`
+and the KATA sliders exist precisely so you can find the right number by hand.
+
+**The tengu's damage is a guess.** 8 per direct hit, and the projectile is a
+gentle lob that mostly wants to miss. Untested against a real player who is
+dodging.
+
+**Kata plays differently now, by design.** Ink is on in Kata by default, so the
+V0.2 practice mode is no longer the V0.2 build. The toggle in its setup screen
+turns the canvas off if you want the old thing back for feel comparisons.
+
+## Open questions
+
+1. Is skating discoverable without being told? (drives G3.2, and the fixes above)
+2. Should enemy splotches be *avoidable* by reading them, or is slowing you the
+   point? Right now they land near you with a small lead — nearly unavoidable
+   if you stand still, trivially avoidable if you move.
+3. Do Set-ink pillars want to block the *player* too? Today they only turn
+   enemies. Blocking both would make laying a heavy a genuine commitment rather
+   than a free wall.
+4. WAVE_CHOICE stays dev-flagged and no choices ship, per the brief. V0.4 decides
+   whether glyph offers light it up.
+
+---
+
+# Previous phases
+
 # V0.2.6 — Frame v1 · Phase Report
 
 Frame correction and expansion. Menus, states and slots only. No combat feel
@@ -263,8 +492,6 @@ before reading any low score as broken.
    the axis you want before V0.4 fills them in.
 
 ---
-
-# Previous phases
 
 # V0.2.5 — The Shell
 The frame of the finished game, with every screen, mode and slot in place.

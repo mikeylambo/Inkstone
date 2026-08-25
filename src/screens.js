@@ -13,6 +13,7 @@ import { Gallery } from './gallery.js';
 import { renderPrint, exportPrintPNG } from './print.js';
 import { SettingsEditor } from './settings.js';
 import { Screen, button, $ } from './ui/screen.js';
+import { TUNING, setTuning } from './tuning.js';
 
 // ------------------------------------------------------------------- TITLE
 
@@ -82,6 +83,13 @@ export class SetupScreen extends Screen {
       : `<div class="rrow"><span>YOUR BEST</span><span>${best ? `${best.score} · wave ${best.wave}` : '—'}</span></div>` +
         `<div class="rrow"><span>SEED</span><span>${this.mode === 'daily' ? dailySeed(day) : 'random'}</span></div>`;
 
+    // KATA is the practice mode, so it is where the canvas gets its own
+    // switches. They write the same tuning paths Options would — one truth,
+    // reached from wherever it makes sense to reach it.
+    const opts = this.root.querySelector('.setup-options');
+    opts.innerHTML = '';
+    if (this.mode === 'kata') this.renderKataOptions(opts);
+
     const list = this.root.querySelector('.menu-list');
     list.innerHTML = '';
     list.appendChild(button('BEGIN', () => this.game.startRun(this.mode)));
@@ -90,6 +98,65 @@ export class SetupScreen extends Screen {
     this.root.querySelector('.setup-foot').textContent =
       this.mode === 'daily' ? 'The seed changes at UTC midnight.' : '';
     super.show();
+  }
+
+  /** Ink switches for practice. Same rows as Player Options, same paths. */
+  renderKataOptions(host) {
+    host.innerHTML = '<h3>CANVAS</h3>';
+
+    const toggle = document.createElement('div');
+    toggle.className = 'opt-row';
+    const tl = document.createElement('label');
+    tl.className = 'opt-label';
+    tl.textContent = 'Ink';
+    const tb = document.createElement('button');
+    tb.className = 'opt-toggle';
+    tb.tabIndex = 0;
+    tb.setAttribute('data-menu-item', '');
+    const paintToggle = () => {
+      tb.textContent = TUNING.ink.enabled ? 'ON' : 'OFF';
+      tb.dataset.on = TUNING.ink.enabled ? '1' : '0';
+    };
+    tb.onclick = () => { setTuning('ink.enabled', TUNING.ink.enabled ? 0 : 1); paintToggle(); };
+    paintToggle();
+    const tc = document.createElement('div');
+    tc.className = 'opt-control';
+    tc.appendChild(tb);
+    toggle.append(tl, tc);
+    host.appendChild(toggle);
+
+    const speed = document.createElement('div');
+    speed.className = 'opt-row';
+    const sl = document.createElement('label');
+    sl.className = 'opt-label';
+    sl.textContent = 'Lifecycle speed';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = '0.25'; range.max = '3'; range.step = '0.05';
+    range.value = String(TUNING.ink.lifecycleScale);
+    range.tabIndex = 0;
+    range.setAttribute('data-menu-item', '');
+    const out = document.createElement('span');
+    out.className = 'opt-value';
+    // shown as a duration, because "how long is my ink wet" is the question
+    const paintSpeed = () => {
+      out.textContent = `${(TUNING.ink.wetTime * TUNING.ink.lifecycleScale).toFixed(1)}s wet`;
+    };
+    range.addEventListener('input', () => {
+      setTuning('ink.lifecycleScale', parseFloat(range.value) || 1);
+      paintSpeed();
+    });
+    paintSpeed();
+    const sc = document.createElement('div');
+    sc.className = 'opt-control';
+    sc.append(range, out);
+    speed.append(sl, sc);
+    host.appendChild(speed);
+
+    const note = document.createElement('p');
+    note.className = 'meta-note';
+    note.textContent = 'Slower ink gives you longer to read a skate line. These apply to every mode.';
+    host.appendChild(note);
   }
 }
 

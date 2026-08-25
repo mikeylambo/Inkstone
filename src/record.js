@@ -4,7 +4,7 @@
  * Nothing reads most of this yet. It exists because four separate things will
  * need it and none of them can reconstruct it after the fact:
  *   - the RESULTS print (reads player path + kills today)
- *   - V0.3's stroke registry, which will want to cross-check its strokes
+ *   - the stroke registry (V0.3), which writes one event per mark
  *   - V0.6's style evaluator, which grades a run it did not watch
  *   - replay / ghosts, which need the run to be legible, not just repeatable
  *
@@ -28,7 +28,7 @@ export const EV = {
   PARRY: 6,
   JUMP: 7,
   WAVE: 8,
-  STROKE: 9,      // placeholder — V0.3 fills this with the real stroke registry
+  STROKE: 9,      // real since V0.3 — one per registry stroke
   POS: 10,
   SPAWN: 11,
   RUN_END: 12,
@@ -37,7 +37,7 @@ export const EV = {
 export const EV_NAME = Object.fromEntries(Object.entries(EV).map(([k, v]) => [v, k]));
 
 /** Bumped when the event shape changes, so a stored record knows its own age. */
-export const RECORD_FORMAT = 2;
+export const RECORD_FORMAT = 3;
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -87,14 +87,16 @@ export class RunRecord {
   runEnd(step, reason) { return this.push({ t: step, e: EV.RUN_END, why: reason }); }
 
   /**
-   * V0.3 slot. The stroke registry will call this for every stroke it creates;
-   * the shape is fixed now so the print and the evaluator can be written
-   * against it before the registry exists.
+   * A stroke, as laid by the registry. `w` is ink weight and `o` is owner, so
+   * the print can draw the player's marks and an enemy's splotches with
+   * different hands. The shape was reserved in V0.2.5 and is now filled by a
+   * real consumer — which is exactly the pressure test the record needed.
    */
-  strokePlaceholder(step, type, from, to) {
+  stroke(step, s) {
     return this.push({
-      t: step, e: EV.STROKE, s: type,
-      x: r2(from.x), z: r2(from.z), x2: r2(to.x), z2: r2(to.z),
+      t: step, e: EV.STROKE, s: s.type,
+      x: r2(s.ax), z: r2(s.az), x2: r2(s.bx), z2: r2(s.bz),
+      w: r2(s.width), o: s.owner === 'enemy' ? 1 : 0,
     });
   }
 

@@ -49,6 +49,11 @@ export const World = {
     frameMs: 0,
   },
 
+  /** The stroke registry of the current run — the canvas. Null outside RUN. */
+  strokes: null,
+  /** In-flight enemy projectiles, owned by the run. */
+  projectiles: null,
+
   requestHitStop(t) {
     // Single chokepoint for every freeze in the game, which is why the
     // accessibility scalar is applied here and nowhere else. It is 1.0 by

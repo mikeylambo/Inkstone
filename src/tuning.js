@@ -456,13 +456,16 @@ export const TUNING = {
       { count: 2, types: ['oni'], interval: 0.70, rest: 3.0 },
       { count: 3, types: ['oni'], interval: 0.65, rest: 3.0 },
       { count: 4, types: ['oni'], interval: 0.60, rest: 2.8 },
-      { count: 4, types: ['oni'], interval: 0.45, rest: 2.8 },
-      { count: 5, types: ['oni'], interval: 0.55, rest: 2.6 },
-      { count: 6, types: ['oni'], interval: 0.50, rest: 2.6 },
-      { count: 6, types: ['oni'], interval: 0.35, rest: 2.4 },
-      { count: 7, types: ['oni'], interval: 0.45, rest: 2.4 },
-      { count: 8, types: ['oni'], interval: 0.40, rest: 2.2 },
-      { count: 9, types: ['oni'], interval: 0.30, rest: 2.0 },
+      // Wave 4 is where the tengu arrives, and where the fight stops being
+      // only about the space you are standing in. Ratios are weights: `types`
+      // is sampled per spawn, so listing oni twice makes it twice as likely.
+      { count: 4, types: ['oni', 'oni', 'tengu'], interval: 0.45, rest: 2.8 },
+      { count: 5, types: ['oni', 'oni', 'tengu'], interval: 0.55, rest: 2.6 },
+      { count: 6, types: ['oni', 'oni', 'tengu'], interval: 0.50, rest: 2.6 },
+      { count: 6, types: ['oni', 'oni', 'tengu'], interval: 0.35, rest: 2.4 },
+      { count: 7, types: ['oni', 'oni', 'tengu'], interval: 0.45, rest: 2.4 },
+      { count: 8, types: ['oni', 'oni', 'tengu', 'tengu'], interval: 0.40, rest: 2.2 },
+      { count: 9, types: ['oni', 'oni', 'tengu', 'tengu'], interval: 0.30, rest: 2.0 },
     ],
     /** Applied repeatedly once the table runs out. */
     escalation: {
@@ -550,6 +553,80 @@ export const TUNING = {
     camMotionScale: 1.0,   // kick, zoom punch and push-in
     highContrast: 0,       // 1 = enemy tells get a high-contrast treatment
     textScale: 1.0,        // UI text size multiplier
+  },
+
+  /**
+   * ---- V0.3 THE CANVAS ----
+   * Ink lifecycle and what ink does. Strokes are sim objects: these numbers
+   * change the simulation, so they sit with the run-structure sections rather
+   * than with combat feel.
+   */
+  ink: {
+    enabled: 1,
+    lifecycleScale: 1.0,     // KATA can slow or speed the whole lifecycle
+
+    /**
+     * The lifecycle, in seconds. Tuned so a light string's ink is still WET
+     * while you are finishing the string — the skate has to be reachable
+     * inside the fight, not thirty seconds later.
+     */
+    freshTime: 0.14,         // the instant of laying; visually the brightest
+    wetTime: 2.10,           // skateable
+    setTime: 3.40,           // solid: pillars block here
+    dryTime: 5.00,           // a mark only, pillars still stand
+    fadeTime: 1.30,          // fade out and retire
+
+    maxLive: 44,             // readability cap — oldest fade early
+    cullSpeedMul: 5.0,       // how much faster a culled stroke ages
+
+    /** Wet-ink skate. Multipliers onto the existing dash — never a second dash. */
+    skateSpeedMul: 1.34,
+    skateDurationMul: 1.55,  // dash STARTING on wet ink extends into a slide
+    skateSteerLerp: 0.06,    // how much the dash can still be steered while skating
+    skateProbe: 0.55,        // metres of slack when testing "am I on ink"
+
+    /** Set-ink pillars. A solid mark presents as a splat surface. */
+    pillarsEnabled: 1,
+    pillarRadius: 0.95,
+    pillarHeight: 2.4,
+    pillarPushOut: 12.0,     // how hard an approaching enemy is pushed off it
+
+    /** Enemy splotches (tengu). Monochrome, and they slow you while WET. */
+    splotchSlowMul: 0.62,
+    splotchRadius: 1.35,
+
+    /** Render. Decals are pooled; these are look, not simulation. */
+    decalHeight: 0.028,      // metres above the floor; layered by index
+    decalLayerStep: 0.0009,
+    freshAlpha: 0.96,
+    wetAlpha: 0.90,
+    setAlpha: 0.80,
+    dryAlpha: 0.52,
+    widthMul: 1.0,
+  },
+
+  /** Enemy 2 — Tengu Stain. Ranged; drops splotches that slow while wet. */
+  tengu: {
+    maxHp: 70,
+    moveSpeed: 4.6,
+    accel: 22.0,
+    turnRate: 7.0,
+    preferredRange: 11.0,    // holds at range instead of closing
+    rangeSlack: 2.6,
+    retreatRange: 6.5,       // backs off if the player closes
+    windup: 0.62,            // telegraph discipline: same shape as the oni
+    active: 0.16,
+    recovery: 0.70,
+    cooldown: 1.35,
+    aggroDelay: 0.9,
+    projectileSpeed: 15.0,
+    projectileLife: 2.4,
+    projectileRadius: 0.42,
+    damage: 8,
+    radius: 0.95,
+    height: 2.0,
+    deathTime: 0.85,
+    flareMaxScale: 1.5,
   },
 
   /** Shell behaviour that is not combat and not accessibility. */

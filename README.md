@@ -3,13 +3,14 @@
 A high-impact character-action scoresmith where every sword stroke writes on the
 battlefield, and what you've written changes how the fight plays.
 
-**Current phase: V0.2.6 — Frame v1.**
+**Current phase: V0.3 — The Canvas Exists.**
 See [REPORT.md](REPORT.md) for gate results.
 
-The frame now supports both endgames the game is aiming at — a campaign
-(*Pilgrimage*) and a pure scoresmith (*Scrolls*) — with only the second one
-built. Reserved slots are real, walkable screens rather than notes in a design
-doc, so V0.3–V0.6 fill them in without moving the navigation around.
+Every grounded attack now leaves a real mark on the floor, and those marks are
+part of the simulation rather than decoration: wet ink is slippery, set ink is
+solid, and a run's marks are what the scroll print draws. The frame from V0.2.6
+supports both endgames — a campaign (*Pilgrimage*) and a pure scoresmith
+(*Scrolls*) — with only the second built.
 
 The game was called SUMI through V0.2.5. Saves migrate automatically.
 
@@ -27,6 +28,34 @@ Then open http://localhost:5173. Add `?seed=anything` to change the run seed —
 same seed and same inputs produce the same run. Add `?dev=1` for the raw tuning
 editor.
 
+## The canvas
+
+A stroke is a **sim object**, not a decal. It is created inside the fixed step
+from the attacker's position, facing and attack type — never from the ribbon,
+which is sampled at render time and would make the canvas a function of frame
+rate. That is what lets the same seed and the same inputs reproduce the same
+canvas, hash for hash.
+
+Ink walks a lifecycle, timed in `TUNING.ink`:
+
+| State | Default | What it does |
+| --- | --- | --- |
+| **Fresh** | 0.14 s | The instant of laying |
+| **Wet** | 2.10 s | Dash across it to **skate** — faster, longer, drifting |
+| **Set** | 3.40 s | Heavy marks are **solid**: they turn a charge, and something knocked into one splatters on it |
+| **Dry** | 5.00 s | Still solid, no longer slick |
+| **Faded** | 1.30 s | Fades out and retires |
+
+Which attacks mark the floor follows one rule: **ink touches the floor when the
+blade does.** Airborne attacks leave nothing; the dive is the exception, and it
+lays on the slam rather than the apex. Each attack's stroke is authored in
+`ATTACK_META` next to its trail colour, and the diagrams in
+**The Inkstone → Strokes** are drawn from that same descriptor, so they cannot
+disagree with the mark you actually leave.
+
+A readability cap (`ink.maxLive`) keeps the canvas legible by pushing the oldest
+marks into an early fade rather than popping them.
+
 ## The words
 
 The fiction is load-bearing in the UI, so these map one-to-one onto the usual
@@ -41,7 +70,7 @@ genre terms:
 | Super | **Finishing Stroke** |
 | Training | **Kata** |
 | History / collection | **Archive** |
-| Enemy | **Stain** (the Oni Stain) |
+| Enemy | **Stain** (the Oni Stain, the Tengu Stain) |
 
 ## Controls
 
@@ -90,12 +119,14 @@ Every screen, including every placeholder, is reachable and escapable on a
 gamepad alone — gate FR1.
 
 **THE INKSTONE** — `TECHNIQUES · STROKES · FINISHING STROKE · PIGMENT · RECORD`.
-Techniques is real. The rest are reserved and say so.
+Techniques and Strokes are real — Strokes documents the ink lifecycle and every
+mark the kit can leave, generated from the attack table. Finishing Stroke and
+Pigment are reserved and say so.
 
 **ARCHIVE** — `SCROLL GALLERY · RECORDS · INK RECORD · LEADERBOARDS`. The
 gallery keeps your last 20 run prints as PNGs in IndexedDB; each is viewable,
 exportable and deletable. Records and Leaderboards are real; the Ink Record
-(bestiary) has one unfinished entry.
+(bestiary) has both Stains.
 
 **PAUSE** — `RESUME · RESTART · RETURN TO SCROLLS · TITLE · ABANDON`, plus the
 move list and Player Options. Context-aware: Kata hides the scroll and abandon
@@ -132,8 +163,14 @@ in the `` ` `` debug overlay, and never appears in the pause menu.
 | **KATA** | Random | No waves. One Stain, endlessly replaced | Respawns in place |
 | SCROLL I–III | — | Unwritten | — |
 
-KATA is the V0.2 build preserved as a practice mode — it plays exactly as it
-did, including respawn-in-place, and is not scored.
+KATA is the V0.2 build preserved as a practice mode — respawn-in-place, not
+scored. Since V0.3 its setup screen also carries the canvas switches (ink on or
+off, lifecycle speed), so you can practise against the old feel or slow the ink
+down to read a skate line.
+
+Waves 4 and up mix in the **Tengu Stain**: ranged, holds its distance, and
+throws ink that stains the floor rather than aiming squarely at you — wet enemy
+ink drags you to 62% speed while the oni closes.
 
 Waves come from `TUNING.waves.table` (10 authored waves), then escalate.
 Difficulty (`UNWRITTEN / STANDARD / BLOOD INK / MASTER / VOID`) is reserved with
@@ -181,8 +218,11 @@ src/
   entities/player.js Player kit and state machine
   entities/oni.js    Enemy 1 — Oni Stain
   gfx/               Materials, arena, pooled effects
-  gfx/slashfan.js    The stylized attack mark
+  gfx/slashfan.js    The stylized attack mark (parked behind fx.fan.enabled=0)
   gfx/trail.js       Ribbon: the swept blade path — the hero trail
+  strokes.js         The stroke registry — the canvas, as simulation
+  gfx/inkcanvas.js   The canvas, as pixels: one mesh, one draw call
+  entities/tengu.js  Enemy 2 — Tengu Stain, and its thrown ink
 tools/shotserver.mjs Dev-only screenshot sink (see below)
 ```
 

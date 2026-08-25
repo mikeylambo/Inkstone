@@ -1,11 +1,12 @@
 /**
  * The scroll print — a top-down drawing of one run, rendered from RunRecord.
  *
- * Deliberately plain: a line for where you walked, marks for kills and for
- * where you were hit. V0.3 turns this into real ink once the stroke registry
- * exists (the STROKE events are already in the record and already drawn here,
- * they are just always empty today). The frame and the PNG export are real
- * now so nothing about the export path has to be invented later.
+ * Since V0.3 the ink is the subject. Every stroke the registry laid is in the
+ * record, and the print draws them as the dominant layer — weighted by the
+ * stroke's own ink width, in the player's sumi or an enemy's grey wash, with
+ * the movement path demoted to a faint thread underneath. Before the registry
+ * existed this was a drawing of where you walked; now it is a drawing of what
+ * you wrote, which is the thing worth keeping.
  */
 import { TUNING } from './tuning.js';
 import { EV } from './record.js';
@@ -63,32 +64,53 @@ export function renderPrint(record, summary, opts = {}) {
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // --- V0.3 slot: strokes, drawn as straight ink lines for now ---
+  // --- the ink: every stroke the run laid, oldest first ---
+  //
+  // Drawn before the path and heavier than it, because this is what the run
+  // actually was. Enemy splotches go down first and in a grey wash so the
+  // player's own marks read on top.
   const strokes = record.filter(EV.STROKE);
+  const mPerPx = (R * 2) / inner;
   if (strokes.length) {
-    ctx.strokeStyle = SUMI;
-    ctx.lineWidth = 5;
     ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.75;
-    for (const s of strokes) {
-      const [x1, y1] = toPx(s.x, s.z);
-      const [x2, y2] = toPx(s.x2, s.z2);
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    }
+    ctx.lineJoin = 'round';
+    const draw = (enemy) => {
+      for (const s of strokes) {
+        if (!!s.o !== enemy) continue;
+        const [x1, y1] = toPx(s.x, s.z);
+        const [x2, y2] = toPx(s.x2, s.z2);
+        // ink weight is the stroke's real width, in paper pixels
+        const w = Math.max(2, (s.w || 0.5) / mPerPx);
+        ctx.strokeStyle = enemy ? WASH : SUMI;
+        ctx.globalAlpha = enemy ? 0.34 : 0.8;
+        ctx.lineWidth = w;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        // a lighter second pass just off-axis gives the mark a loaded-brush
+        // edge instead of a flat cap
+        ctx.globalAlpha = enemy ? 0.16 : 0.3;
+        ctx.lineWidth = w * 0.45;
+        ctx.beginPath();
+        ctx.moveTo(x1 + 1.5, y1 - 1.5);
+        ctx.lineTo(x2 + 1.5, y2 - 1.5);
+        ctx.stroke();
+      }
+    };
+    draw(true);
+    draw(false);
     ctx.globalAlpha = 1;
   }
 
-  // --- movement path ---
+  // --- movement path: a thread under the ink, not the subject ---
   const path = record.path;
   if (path.length > 1) {
-    ctx.strokeStyle = SUMI;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = WASH;
+    ctx.lineWidth = 1.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.62;
+    ctx.globalAlpha = 0.4;
     ctx.beginPath();
     let started = false;
     for (const p of path) {

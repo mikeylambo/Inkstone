@@ -16,6 +16,7 @@ import { Ribbon } from '../gfx/trail.js';
 import { SlashFan } from '../gfx/slashfan.js';
 import { POSES, TRACKS, evalTrack, blendPoses, applyPose, makeScratchPose, EASE } from '../anim/poses.js';
 import { getAttack, phaseOf, isActiveFrames, GROUND_LIGHT_CHAIN, AIR_LIGHT_CHAIN, DIR_MOVES } from '../combat/attacks.js';
+import { strokeFromAttack, INK } from '../strokes.js';
 import { resolveAttackHits, resolveRadialHits } from '../combat/hits.js';
 
 /** World-space ink line weight on the player. */
@@ -55,6 +56,8 @@ export class Player {
     this.dive = null;
     this.dashTimer = 0;
     this.dashCooldown = 0;
+    this.skating = false;
+    this.skateDuration = TUNING.dash.duration;
     this.dashDir = new THREE.Vector3(0, 0, 1);
     this.airDashes = TUNING.dash.airDashesMax;
     this.iframes = 0;
@@ -511,6 +514,7 @@ export class Player {
       selfLifted: false,
       released: false,
       whiffed: true,
+      inked: false,
     };
 
     this.swapRibbon();
@@ -581,6 +585,10 @@ export class Player {
 
     // active frames
     if (isActiveFrames(def, a.elapsed)) {
+      // The mark is laid on the first active step, from position and facing —
+      // never from the ribbon, which is sampled at render time and would make
+      // the canvas a function of frame rate (see strokes.js).
+      if (!a.inked) { a.inked = true; this.layStroke(def); }
       const hits = resolveAttackHits(this, def, a.hitSet);
       if (hits > 0) {
         a.whiffed = false;
@@ -669,7 +677,9 @@ export class Player {
     const hitSet = new Set();
     resolveRadialHits(this.position, def, D.radius, hitSet);
 
-    // the dive's mark belongs at the slam, not at the apex
+    // the dive's mark belongs at the slam, not at the apex — and so does its
+    // ink, which is why dive is the one airborne attack that lays a stroke
+    this.layStrokeAt(getAttack('dive'), true);
     this.fan.trigger('dive', getAttack('dive').trail);
     World.camRig.pushTo(0, D.recovery);
     World.fx.shockwave(this.position, D.radius, TUNING.fx.shockwaveLife);
@@ -681,6 +691,61 @@ export class Player {
     World.camRig.zoomPunch(D.zoom);
     Audio.impact('dive');
     if (hitSet.size === 0) World.camRig.addTrauma(D.shake * 0.4);
+  }
+
+  // ----------------------------------------------------------------- ink
+
+  /**
+   * Lay this attack's authored stroke on the canvas.
+   *
+   * Airborne attacks lay nothing: ink touches the floor when the blade does.
+   * The dive is the exception and lays on landing, not here.
+   */
+  layStroke(def) {
+    if (!def.ink || !this.grounded) return null;
+    const run = World.run;
+    if (!run || !run.strokes) return null;
+    const cfg = strokeFromAttack(this.position, this.facing, def.ink, {
+      owner: 'player',
+      pillar: !!def.ink.pillar,
+      sourceKey: def.key,
+    });
+    const s = run.strokes.create(cfg, run.step);
+    if (s) run.onStroke(s);
+    return s;
+  }
+
+  /** As layStroke, but ignoring the grounded test — the dive has just landed. */
+  layStrokeAt(def, force = false) {
+    const wasGrounded = this.grounded;
+    if (force) this.grounded = true;
+    const s = this.layStroke(def);
+    this.grounded = wasGrounded;
+    return s;
+  }
+
+  /** Wet ink under the player's feet, if any. */
+  wetInkHere(pad = 0) {
+    const run = World.run;
+    if (!run || !run.strokes) return null;
+    const hits = run.strokes.coveringPoint(this.position, pad, {
+      owner: 'player', states: [INK.FRESH, INK.WET],
+    });
+    return hits.length ? hits[0] : null;
+  }
+
+  /**
+   * Enemy splotches slow the player while they are wet. Returns a multiplier,
+   * 1 when clear — the caller scales its own target speed rather than this
+   * forking movement into a second path.
+   */
+  inkSpeedMul() {
+    const run = World.run;
+    if (!run || !run.strokes) return 1;
+    const wet = run.strokes.coveringPoint(this.position, 0, {
+      owner: 'enemy', states: [INK.FRESH, INK.WET],
+    });
+    return wet.length ? TUNING.ink.splotchSlowMul : 1;
   }
 
   // ---------------------------------------------------------------- dash
@@ -696,6 +761,12 @@ export class Player {
     this.state = 'dash';
     this.dashTimer = 0;
     this.dashCooldown = TUNING.dash.cooldown;
+    // A dash that STARTS on wet ink extends into a slide. This is a multiplier
+    // on the existing dash, not a second dash state — the brief is explicit
+    // that skating must feel like the dash rewarding you, not like a new move.
+    this.skating = this.grounded && !!this.wetInkHere(TUNING.ink.skateProbe);
+    this.skateDuration = TUNING.dash.duration *
+      (this.skating ? TUNING.ink.skateDurationMul : 1);
     this.attack = null;
     this.dive = null;
     this.chainIndex = 0;
@@ -714,18 +785,39 @@ export class Player {
 
   stepDash(dt) {
     const D = TUNING.dash;
+    const I = TUNING.ink;
     this.dashTimer += dt;
     this.iframes = (this.dashTimer >= D.iframeStart && this.dashTimer <= D.iframeEnd) ? 0.02 : this.iframes;
 
-    const u = this.dashTimer / D.duration;
-    const speed = D.speed * (1 - EASE.inQuad(Math.min(1, u)) * 0.55);
+    // Crossing INTO wet ink keeps the skate alive, so a line of your own ink
+    // is a rail you can ride rather than a one-off bonus at the start.
+    const onWet = this.grounded && !!this.wetInkHere(I.skateProbe);
+    if (onWet) this.skating = true;
+
+    const dur = this.skateDuration || D.duration;
+    const u = this.dashTimer / dur;
+    let speed = D.speed * (1 - EASE.inQuad(Math.min(1, u)) * 0.55);
+    if (this.skating && onWet) {
+      speed *= I.skateSpeedMul;
+      // drift: you keep a little steering, but the ink mostly decides
+      const mv = this.moveInputWorld();
+      if (mv) {
+        this.dashDir.x += (mv.x - this.dashDir.x) * I.skateSteerLerp;
+        this.dashDir.z += (mv.z - this.dashDir.z) * I.skateSteerLerp;
+        const len = Math.hypot(this.dashDir.x, this.dashDir.z) || 1;
+        this.dashDir.x /= len; this.dashDir.z /= len;
+        this.facing = Math.atan2(this.dashDir.x, this.dashDir.z);
+      }
+    }
     this.vel.x = this.dashDir.x * speed;
     this.vel.z = this.dashDir.z * speed;
     if (!this.grounded) this.vel.y *= 0.86;
 
-    if (this.dashTimer >= D.duration) {
-      this.vel.x = this.dashDir.x * D.speed * D.endSpeedKeep;
-      this.vel.z = this.dashDir.z * D.speed * D.endSpeedKeep;
+    if (this.dashTimer >= dur) {
+      const keep = D.speed * D.endSpeedKeep * (this.skating ? I.skateSpeedMul : 1);
+      this.vel.x = this.dashDir.x * keep;
+      this.vel.z = this.dashDir.z * keep;
+      this.skating = false;
       this.state = 'free';
     }
   }
@@ -840,6 +932,8 @@ export class Player {
     this.moving = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
+    this.skating = false;
+    this.skateDuration = TUNING.dash.duration;
     this.airDashes = TUNING.dash.airDashesMax;
     this.iframes = 0;
     this.invuln = 0;
@@ -878,8 +972,10 @@ export class Player {
     const mv = this.moveInputWorld();
 
     if (mv && this.landTimer <= 0) {
-      const targetX = mv.x * P.moveSpeed;
-      const targetZ = mv.z * P.moveSpeed;
+      // enemy ink under your feet drags; 1.0 when clear
+      const inkMul = this.inkSpeedMul();
+      const targetX = mv.x * P.moveSpeed * inkMul;
+      const targetZ = mv.z * P.moveSpeed * inkMul;
       const accel = this.grounded ? P.accel : P.airAccel;
       this.vel.x += (targetX - this.vel.x) * Math.min(1, accel * dt / P.moveSpeed);
       this.vel.z += (targetZ - this.vel.z) * Math.min(1, accel * dt / P.moveSpeed);

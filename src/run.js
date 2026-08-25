@@ -16,7 +16,9 @@ import { Input, ACTIONS } from './input.js';
 import { Rng } from './rng.js';
 import { Fx } from './gfx/fx.js';
 import { Oni } from './entities/oni.js';
+import { Tengu } from './entities/tengu.js';
 import { RunRecord } from './record.js';
+import { StrokeRegistry } from './strokes.js';
 import { Score } from './score.js';
 
 export const MODES = {
@@ -71,6 +73,11 @@ export class Run {
     this.enemies = [];
     this.record = new RunRecord();
     this.score = new Score();
+    /** The canvas. Owned by the run and destroyed with it, like everything else. */
+    this.strokes = new StrokeRegistry();
+    this.projectiles = [];
+    /** Set/Dry pillar strokes as splat surfaces. Rebuilt once per sim step. */
+    this.pillars = [];
 
     this.record.meta = {
       seed: this.seed, mode: this.mode, scroll: this.config.scroll,
@@ -116,6 +123,8 @@ export class Run {
     World.rng = this.rng;
     World.fx = this.fx;
     World.enemies = this.enemies;
+    World.strokes = this.strokes;
+    World.projectiles = this.projectiles;
     World.time = 0;
     World.step = 0;
     World.hitStop = 0;
@@ -141,19 +150,29 @@ export class Run {
   dispose() {
     for (const e of this.enemies) e.dispose();
     this.enemies.length = 0;
+    for (const p of this.projectiles) p.dispose();
+    this.projectiles.length = 0;
+    this.strokes.clear();
     this.fx.dispose();
     if (World.run === this) {
       World.run = null;
+      World.strokes = null;
+      World.projectiles = null;
       World.lockTarget = null;
     }
   }
 
   // ------------------------------------------------------------- spawning
 
+  /** Enemy classes by wave-table `types` id. Unknown ids fall back to oni. */
+  static ENEMY_KINDS = { oni: Oni, tengu: Tengu };
+
   spawnAt(kind, x, z) {
-    const e = new Oni(this.scene, x, z);
+    const Kind = Run.ENEMY_KINDS[kind] || Oni;
+    const e = new Kind(this.scene, x, z);
+    e.kind = Run.ENEMY_KINDS[kind] ? kind : 'oni';
     this.enemies.push(e);
-    this.record.spawn(this.step, kind, e.position);
+    this.record.spawn(this.step, e.kind, e.position);
     return e;
   }
 
@@ -231,6 +250,13 @@ export class Run {
       this.banner.timer -= dt;
       if (this.banner.timer <= 0) this.banner = null;
     }
+
+    // the canvas ages inside the fixed step, like everything else that a
+    // replay has to reproduce
+    this.strokes.update(dt);
+    // once per step, not once per enemy per step
+    this.strokes.pillarSurfaces(this.pillars);
+    this.updateProjectiles(dt);
 
     if (this.usesWaves) this.updateWaves(dt);
     else this.updateKata(dt);
@@ -342,6 +368,19 @@ export class Run {
   }
 
   // ------------------------------------------------- events from combat code
+
+  /** Every registry stroke lands in the record; the print reads it back. */
+  onStroke(s) { this.record.stroke(this.step, s); }
+
+  addProjectile(p) { this.projectiles.push(p); return p; }
+
+  updateProjectiles(dt) {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.update(dt);
+      if (p.done) { p.dispose(); this.projectiles.splice(i, 1); }
+    }
+  }
 
   onAttackStart(key) { this.record.attackStart(this.step, key); }
   onDash(pos) { this.record.dash(this.step, pos); }

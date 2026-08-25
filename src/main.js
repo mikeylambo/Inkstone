@@ -15,6 +15,7 @@ import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { Fx } from './gfx/fx.js';
 import { createArena } from './gfx/arena.js';
+import { InkCanvas } from './gfx/inkcanvas.js';
 import { CameraRig } from './camera.js';
 import { Player } from './entities/player.js';
 import { Hud } from './hud.js';
@@ -72,6 +73,11 @@ World.fx = new Fx(scene, World.rng);
 const arena = createArena(scene);
 World.splatSurfaces = arena.splatSurfaces;
 World.player = new Player(scene);
+
+// The canvas view. It outlives any single run — it renders whatever registry
+// the current run owns, and draws nothing when there is no run.
+const inkCanvas = new InkCanvas(scene);
+World.inkCanvas = inkCanvas;
 
 const hud = new Hud();
 const pauseMenu = new PauseMenu();
@@ -204,7 +210,11 @@ function frame(now) {
 
   World.player.applyInterpolation(alpha);
   for (const e of World.enemies) e.applyInterpolation(alpha);
+  if (World.projectiles) for (const p of World.projectiles) p.applyInterpolation(alpha);
   World.camRig.apply(alpha, now / 1000);
+
+  // read-only view of the registry; never writes back into the sim
+  inkCanvas.update(World.strokes);
 
   hud.update(camera, game);
   World.debug.simStepsLastFrame = steps;
@@ -228,7 +238,7 @@ requestAnimationFrame(frame);
 const HARNESS = {
   VERSION,
   World, TUNING, Input, Audio, scene, camera, renderer,
-  game, pauseMenu, hud, Profile, STATE, simStep, STEP, devMode,
+  game, pauseMenu, hud, Profile, STATE, simStep, STEP, devMode, inkCanvas,
 
   /** Dev: bounce every procedural sound to WAV via the local file sink. */
   async exportAudio(sink) {

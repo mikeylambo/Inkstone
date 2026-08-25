@@ -176,7 +176,14 @@ export class Debug {
     mkRow('splat armed', () => (World.lockTarget ? (World.lockTarget.splatArmed ? 'yes' : 'no') : '—'));
 
     mkSection('stroke registry');
-    mkRow('live strokes', () => 'V0.3 — not built');
+    mkRow('live strokes', () => {
+      const r = World.strokes;
+      if (!r) return '—';
+      const by = {};
+      for (const s of r.strokes) by[s.state] = (by[s.state] || 0) + 1;
+      const parts = Object.entries(by).map(([k, v]) => `${k} ${v}`).join(' · ');
+      return `${r.live}/${TUNING.ink.maxLive}  (${parts || 'none'})  laid ${r.created}`;
+    });
     mkRow('ink pools', () => World.fx.inkPools.length);
     mkRow('decals', () => World.fx.decals.length);
 

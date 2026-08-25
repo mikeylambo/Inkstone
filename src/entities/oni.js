@@ -215,6 +215,7 @@ export class Oni {
           const target = _v.normalize().multiplyScalar(O.moveSpeed);
           this.vel.x += (target.x - this.vel.x) * Math.min(1, O.accel * dt / O.moveSpeed);
           this.vel.z += (target.z - this.vel.z) * Math.min(1, O.accel * dt / O.moveSpeed);
+          this.pushOffPillars(dt);
         } else {
           this.vel.x *= 0.82; this.vel.z *= 0.82;
           if (committed && dist <= O.attackRange && this.cooldown <= 0) {
@@ -347,6 +348,31 @@ export class Oni {
     this.hangBonus = 0;
   }
 
+  /**
+   * Set ink is solid to a charge. The oni is pushed out rather than stopped
+   * dead, so a mark deflects the crowd around it — which is what makes laying
+   * a heavy across an approach lane a decision rather than a wall.
+   */
+  pushOffPillars(dt) {
+    const run = World.run;
+    if (!run || !run.pillars.length) return;
+    const I = TUNING.ink;
+    for (const s of run.pillars) {
+      const dx = this.position.x - s.position.x;
+      const dz = this.position.z - s.position.z;
+      const d = Math.hypot(dx, dz);
+      const min = s.radius + this.radius;
+      if (d >= min || d < 1e-4) continue;
+      const nx = dx / d, nz = dz / d;
+      const push = (min - d) * I.pillarPushOut;
+      this.vel.x += nx * push * dt;
+      this.vel.z += nz * push * dt;
+      // and don't let it tunnel through on a fast frame
+      this.position.x = s.position.x + nx * min;
+      this.position.z = s.position.z + nz * min;
+    }
+  }
+
   // ------------------------------------------------------------ wall splat
 
   checkSplatSurfaces() {
@@ -355,7 +381,14 @@ export class Oni {
     const speed = Math.hypot(this.vel.x, this.vel.z);
     if (speed < W.speedThreshold) return;
 
-    for (const s of World.splatSurfaces) {
+    // Arena pillars and Set-ink pillars present the same shape, so one splat
+    // implementation serves both. A heavy mark you laid two seconds ago is a
+    // wall you can throw something into.
+    const surfaces = World.run && World.run.pillars.length
+      ? World.splatSurfaces.concat(World.run.pillars)
+      : World.splatSurfaces;
+
+    for (const s of surfaces) {
       _n.set(this.position.x - s.position.x, 0, this.position.z - s.position.z);
       const d = _n.length();
       if (d > s.radius + this.radius || d < 1e-4) continue;
