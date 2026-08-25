@@ -10,6 +10,7 @@ import { Screen, TabbedScreen, button, unwrittenPanel } from './screen.js';
 import { TechniqueList, strokeDiagram } from '../techniques.js';
 import { ATTACK_META } from '../combat/attacks.js';
 import { INK } from '../strokes.js';
+import { glyphReference } from '../glyphs.js';
 import { TUNING } from '../tuning.js';
 import { OptionsEditor } from '../playeroptions.js';
 import { Profile } from '../profile.js';
@@ -120,6 +121,28 @@ function strokesPanel() {
   note.textContent = 'Airborne strokes leave nothing: ink touches the floor when the blade does. ' +
     'The falling stroke is the exception, and it is the one that lands.';
   el.appendChild(note);
+
+  // --- V0.4: the shapes those marks can add up to ---
+  const forms = document.createElement('div');
+  forms.className = 'glyph-ref';
+  forms.innerHTML = '<h3>THE FORMS</h3>';
+  for (const g of glyphReference()) {
+    const row = document.createElement('div');
+    row.className = 'glyph-row';
+    row.innerHTML =
+      `<span class="glyph-kanji">${g.kanji}</span>` +
+      `<span class="glyph-body">` +
+      `<span class="glyph-name">${g.label}</span>` +
+      `<span class="glyph-how">${g.how}</span>` +
+      `<span class="glyph-does">${g.line}</span></span>`;
+    forms.appendChild(row);
+  }
+  const fnote = document.createElement('p');
+  fnote.className = 'meta-note';
+  fnote.textContent = `A form is found in marks you have already made, within ${glyphReference()[0].window}s ` +
+    'of each other. Nothing is a form on its own — it is what the marks make together.';
+  forms.appendChild(fnote);
+  el.appendChild(forms);
   return el;
 }
 

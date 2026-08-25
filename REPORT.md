@@ -1,3 +1,193 @@
+# V0.4 — Combat Calligraphy · Phase Report
+
+Falsifiable question: **does drawing a shape feel like a discovery?**
+
+Cross 十, Enso 〇 and Triad 三 are recognised relationally over the V0.3 stroke
+registry, fire immediately in the fight, are stamped on the scroll, and fill
+the `UNIQUE FORMS` line that has been reserved on RESULTS since V0.2.6.
+
+## Two decisions the brief left to phase start
+
+**WAVE_CHOICE stays dev-flagged. No choices ship.** The brief said glyph offers
+*may* light it up. They do not, for two reasons: this phase tests whether
+drawing feels like a discovery, and bolting a between-wave card draft onto the
+same build means a bad result cannot be attributed to either; and the run is a
+continuous escalation with no room breaks, so a modal pick interrupts exactly
+the flow the glyph loop lives in. The shell is built and reachable under
+`frame.waveChoiceEnabled` whenever you want it.
+
+**G4.1–G4.3 below are derived,** in the house style, because v1's wording was
+not available in this session. Correct them against v1 and I will re-run.
+
+## The rule that makes this a mechanic
+
+Recognition is **relational, never a stroke's own property.** No attack "is a
+Cross". A Cross is two marks that happen to intersect at an angle, found by
+asking the registry about geometry that already exists. That is why V0.3's
+query API took a time window nothing passed yet — this is the consumer it was
+shaped for.
+
+`src/glyphs.js` is pure geometry over plain numbers, runs inside the fixed
+step, and uses no rng and no render state, so a replay draws the same glyphs on
+the same steps. Recognition is *incremental*: only the mark just laid is tested
+against the working set, because a glyph can only newly exist if a new mark
+completed it. A full pairwise sweep would be O(n²) per step for no benefit.
+
+**One path definition.** V0.3 had the renderer sampling arcs into polylines
+privately. The moment recognition needed the same curve, that became two
+chances for the canvas you can see and the canvas the game reasons about to
+disagree — so `Stroke.path()` now owns it and the renderer delegates.
+
+## What each shape is, and how you get one
+
+| | Drawn by | Does |
+| --- | --- | --- |
+| **十 Cross** | A straight mark cut through an arc at >36°. Finishing the light string does it — hit 3 is a line through the first two arcs. | Severs at the crossing: 42 damage, stagger, knock outward, and leaves the Stain splat-armed so it can be thrown into your set ink |
+| **〇 Enso** | Ink closing 281° around one centre. The falling stroke draws one alone; so do two swings struck from opposite sides. | Encloses: 18 damage and drags everything inside toward the centre, held 0.85s |
+| **三 Triad** | Three *straight* marks within 19° of parallel, 0.9–6.5m apart. Three launchers stepped sideways. | A wave along every line: 26 damage, stagger, hard knockback |
+
+Glyphs spend the marks that formed them, so one long-lived line cannot keep
+completing shapes as new ink lands near it.
+
+## Gates (derived)
+
+### ✅ G4.1 — a glyph is recognised from marks, not from moves
+
+No attack carries a glyph. Verified by constructing shapes the kit never
+produces — two bare crossing lines, a bare full-circle arc — and having them
+recognised identically to ones drawn in combat:
+
+```
+constructed cross → cross fired, 3 onis 120→78 hp, stun 0.50, splat-armed
+constructed ring  → enso  fired, 3 onis 120→102 hp, stun 0.85,
+                    velocity 0.00 rad off centre-ward (dead-on inward pull)
+```
+
+All three shapes were also drawn by real play in a single run, and the
+recogniser found an **Enso from two opposing swings** — a combination nobody
+authored, which is what relational recognition is for.
+
+### ✅ G4.2 — the same seed and inputs draw the same glyphs
+
+```
+seed 'd4' run A   canvas + record hash identical, 6 glyphs at identical steps
+seed 'd4' run B   identical
+other seed        differs
+```
+
+An earlier 45-beat script produced 8 glyphs at `cross@70, cross@243, cross@326,
+triad@409, cross@475, triad@514, cross@550, cross@723` — byte-identical across
+runs.
+
+### ✅ G4.3 — the run says what you wrote
+
+RESULTS fills the reserved lines and stamps the forms:
+
+```
+GLYPHS DRAWN 8      UNIQUE FORMS 3 / 3      FORMS WRITTEN 十 〇 三  (3/3 seals lit)
+WAVE BREAKDOWN gains a GLYPHS column
+```
+
+The print stamps each glyph's kanji in vermilion where it was drawn (3,347
+vermilion pixels on a 560×560 scroll), and the scroll auto-saved to the gallery.
+`RunRecord` round-trips byte-identically with the new `EV.GLYPH` events, so
+FR10 still holds.
+
+### Performance
+
+Full canvas (38 live strokes), 7 enemies:
+
+| | ms |
+| --- | --- |
+| `recognise()` per call | **0.010** |
+| `simStep` | 0.026 |
+| `renderer.render` | 1.958 |
+| total | 1.98 of a 16.67 budget |
+
+Recognition is effectively free because it is incremental. Same
+no-compositing caveat as V0.3: this is CPU + GPU-submit time, not a vsync'd fps
+reading.
+
+## A false claim in the V0.3 report, now corrected
+
+V0.3's report printed a crossing table asserting `light1 × light2 ✓`. **It was
+wrong, and the report has been corrected in place.**
+
+The test measured the strokes' **chords**. light1 and light2 are struck from
+one spot, which makes them *concentric* arcs — radii 2.5 and 2.6 about the same
+centre. Concentric circles never intersect, however they are tilted. Their
+chords do cross, so a chord-based test says yes and the ink says no.
+
+What `tilt` actually buys is that hit 2 is a distinct mark rather than a redraw
+— worth having, and now what the code and the comment both claim. The string's
+real Cross comes from hit 3, which is a straight line through both arcs,
+crossing at **75°** against a 36° threshold. Verified 12/12 seeds by mashing.
+
+This is the second time a chord stood in for a curve and lied (V0.3's ink
+collision was the first). Both are now routed through `Stroke.path()`.
+
+## Two balance problems I found and fixed
+
+Measured on a 32-second scripted fight, before and after:
+
+| | before | after |
+| --- | --- | --- |
+| seconds between glyphs | 1.19 | 1.68 |
+| glyphs per minute | 50.6 | 35.6 |
+| Triad fired | **13** | **0** (accidental) |
+| glyph share of score | **92%** | 54% |
+
+**Triad was firing by accident.** The code accepted arcs as "parallel marks"
+while my own reference text said straight marks only. An arc's heading is its
+chord, so two swings from different places can have parallel chords while
+curving nowhere near each other — a Triad you got for circling an enemy. Now
+straight strokes only, which is what the shape means and what the text always
+claimed. It is still reachable deliberately: three launchers stepped sideways
+fires it every time.
+
+**Glyphs were 92% of the score.** 12,870 points against 531 from hits and 609
+from kills. That is the scoring model answering "did you draw" instead of "did
+you fight well". The score *model* is deferred per the brief, so I did not touch
+it — but the glyph values are new numbers I introduced this phase, and I had set
+them 2–3× the wave bonus. They now sit in family with the existing bonuses
+(kill 140, parry 90, splat 120): **Cross 90, Enso 130, Triad 170.**
+
+## Things worth flagging
+
+**54% is still glyph-heavy, and the number is soft.** The scripted driver never
+takes damage, never dies, and mashes constantly, so it overstates glyph share
+against a real run carrying a damage penalty. The lever is
+`glyphs.crossScore / ensoScore / triadScore`. Worth a real playtest before
+tuning further.
+
+**Cross dominates the mix.** In scripted play: Cross 15, Enso 4, Triad 0
+accidental. That is the intended ramp — the Cross is the free discovery that
+teaches the system exists without a tutorial, Enso and Triad are the deliberate
+ones — but if the Cross feels ambient rather than earned, raise
+`glyphs.crossMinAngle` above the string's natural 75° and it becomes a
+deliberate shape too.
+
+**The Enso from opposing swings was not designed.** The recogniser found it.
+Worth deciding whether it stays as an emergent reward or gets documented.
+
+**Glyph effects reuse the existing hit vocabulary** — damage, hitstun, squash,
+knockback, splat-arming — rather than inventing reaction classes. The point of
+V0.4 is the shape; new hit feel would have confounded it.
+
+## Open questions
+
+1. Does drawing feel like a discovery, or like something that happens *to* you?
+   That is G4.1's real question and it needs a player.
+2. Is one glyph every ~1.7s the right cadence, or should shapes be rarer and
+   larger?
+3. Should the Cross stay free, or should the basic string stop producing one?
+4. Still open from V0.2.6: whether leaderboard entries record accessibility
+   settings. Still open from V0.3: whether skating is discoverable unprompted.
+
+---
+
+# Previous phases
+
 # V0.3 — The Canvas Exists · Phase Report
 
 Falsifiable question: **does fighting visibly change my next thirty seconds?**
@@ -166,12 +356,16 @@ popping) and perf is not the constraint. Readability is a look judgement.
 that it "crosses the first — the shape V0.4 reads as a Cross." My own crossing
 test returned false. Reversing an arc's sweep direction draws *the identical
 arc backwards*: light2 was repainting light1's line. Replaced with a real
-angular `tilt` that swings the arc off the facing axis. Now:
+angular `tilt` that swings the arc off the facing axis.
 
-```
-light1 × light2  ✓    light2 × light3  ✓    light1 × light3  ✓
-light1 × heavy   ✓  (heavy tilts the other way)
-```
+> **Corrected in V0.4.** The crossing table originally printed here was wrong.
+> It was measured on the strokes' **chords**, not their curves, and chords of
+> concentric arcs do cross where the arcs themselves cannot. Two swings struck
+> from one spot are concentric circles and can never meet, however they are
+> tilted. What `tilt` actually buys is that hit 2 is a *distinct mark* rather
+> than a redraw — which is worth having, and is what the code now says it does.
+> The string's real Cross comes from hit 3, which is a straight line through
+> both arcs. See the V0.4 report.
 
 **2. Ink collision used the wrong geometry.** `distanceTo` treated an arc as its
 chord. A wide slash's chord runs up to `r(1 − cos(sweep/2))` inside its curve —
@@ -224,8 +418,6 @@ turns the canvas off if you want the old thing back for feel comparisons.
    whether glyph offers light it up.
 
 ---
-
-# Previous phases
 
 # V0.2.6 — Frame v1 · Phase Report
 

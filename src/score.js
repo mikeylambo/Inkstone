@@ -39,7 +39,9 @@ export class Score {
     this.splats = 0;
     this.damageTaken = 0;
     this.wavesCleared = 0;
-    this.breakdown = { hits: 0, kills: 0, waves: 0, parries: 0, splats: 0, penalty: 0 };
+    this.glyphs = 0;
+    this.glyphKinds = new Set();
+    this.breakdown = { hits: 0, kills: 0, waves: 0, parries: 0, splats: 0, glyphs: 0, penalty: 0 };
   }
 
   /** Combo multiplier, capped. */
@@ -55,6 +57,21 @@ export class Score {
     this.breakdown.hits += gain;
     this.hits++;
     if (combo > this.bestCombo) this.bestCombo = combo;
+    return gain;
+  }
+
+  /**
+   * A glyph is the most deliberate thing a player can do, so it is scored as
+   * such — and tracked by kind, because "how many different shapes did you
+   * write" is the question V0.6's Variety axis will want to ask.
+   */
+  onGlyph(id, points, combo) {
+    const gain = points * this.multiplier(combo);
+    this.total += gain;
+    this.breakdown.glyphs = (this.breakdown.glyphs || 0) + gain;
+    this.glyphs = (this.glyphs || 0) + 1;
+    if (!this.glyphKinds) this.glyphKinds = new Set();
+    this.glyphKinds.add(id);
     return gain;
   }
 
@@ -122,6 +139,14 @@ export class Score {
       bestCombo: this.bestCombo,
       damageTaken: this.damageTaken,
       wavesCleared: this.wavesCleared,
+      glyphs: this.glyphs,
+      /**
+       * The reserved UNIQUE FORMS line on RESULTS, filled from V0.4: how many
+       * *different* shapes this run wrote. Repeating one Cross forever is not
+       * the same achievement as writing all three.
+       */
+      uniqueForms: this.glyphKinds.size,
+      glyphKinds: [...this.glyphKinds],
       breakdown: { ...this.breakdown },
       // present but not yet graded — V0.6 fills these in
       flow: null, variety: null, precision: null, composition: null, control: null,
@@ -129,7 +154,8 @@ export class Score {
     if (record) {
       out.recordedHits = record.count(EV.HIT);
       out.recordedKills = record.count(EV.KILL);
-      out.strokes = record.count(EV.STROKE);   // 0 until V0.3
+      out.strokes = record.count(EV.STROKE);
+      out.recordedGlyphs = record.count(EV.GLYPH);
     }
     return out;
   }

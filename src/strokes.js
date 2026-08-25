@@ -75,6 +75,12 @@ export class Stroke {
     this.state = INK.FRESH;
     this.alpha = 1;          // render weight, driven by state
     this.dying = false;      // culled early by the readability cap
+    /**
+     * Which glyph, if any, has already claimed this mark. A stroke can only be
+     * spent once — without this, one long-lived line sitting in a busy corner
+     * would re-trigger every time a new mark landed near it.
+     */
+    this.glyph = null;
   }
 
   get length() { return Math.hypot(this.bx - this.ax, this.bz - this.az); }
@@ -126,6 +132,34 @@ export class Stroke {
   covers(px, pz, pad = 0) {
     return this.distanceTo(px, pz) <= this.width * 0.5 + pad;
   }
+
+  /**
+   * Sample this stroke into a flat [x,z,x,z,…] polyline.
+   *
+   * One path definition, used by the renderer, by glyph recognition and by
+   * anything that comes later. V0.3 shipped a private copy of this in the
+   * renderer; the moment recognition needed the same curve, two copies became
+   * two chances for the canvas you can see and the canvas the game reasons
+   * about to disagree.
+   */
+  path(out = [], segments = 12) {
+    out.length = 0;
+    if (this.arc) {
+      const { cx, cz, r, a0, a1 } = this.arc;
+      const n = Math.max(2, segments);
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        const a = a0 + (a1 - a0) * t;
+        out.push(cx + Math.sin(a) * r, cz + Math.cos(a) * r);
+      }
+    } else {
+      out.push(this.ax, this.az, this.bx, this.bz);
+    }
+    return out;
+  }
+
+  /** Direction of the stroke as an angle, for parallel / perpendicular tests. */
+  get heading() { return Math.atan2(this.bx - this.ax, this.bz - this.az); }
 
   /** The shape the RunRecord stores, and the print draws. */
   toRecord() {
@@ -255,6 +289,23 @@ export class StrokeRegistry {
     return out;
   }
 
+  /**
+   * Player marks that no glyph has claimed yet, laid within `window` steps.
+   * This is the working set every recognition pass runs over.
+   */
+  unspent(step, window, exclude = null) {
+    const out = [];
+    for (const s of this.strokes) {
+      if (s === exclude) continue;
+      if (s.owner !== 'player') continue;
+      if (s.glyph) continue;
+      if (s.state === INK.FADED) continue;
+      if (window != null && (step - s.bornStep) > window) continue;
+      out.push(s);
+    }
+    return out;
+  }
+
   /** Strokes whose ink actually covers a point. */
   coveringPoint(pos, pad = 0, opts = {}) {
     const out = [];
@@ -301,7 +352,7 @@ export class StrokeRegistry {
     };
     for (const s of this.strokes) {
       put(`${s.id}|${s.type}|${s.owner}|${s.pillar ? 1 : 0}|` +
-          `${r3(s.ax)},${r3(s.az)},${r3(s.bx)},${r3(s.bz)}|${s.bornStep}|${s.state}`);
+          `${r3(s.ax)},${r3(s.az)},${r3(s.bx)},${r3(s.bz)}|${s.bornStep}|${s.state}|${s.glyph || '-'}`);
     }
     put(`#${this.created}/${this.culled}`);
     return (h >>> 0).toString(16).padStart(8, '0');
@@ -330,14 +381,17 @@ export function strokeFromAttack(pos, facing, g, extra = {}) {
   const oz = pos.z + fwd.z * (g.offset || 0);
 
   if (g.kind === 'arc') {
-    // `tilt` swings the whole arc off the facing axis. This is what makes a
-    // two-hit string cross itself rather than repaint the same line: merely
-    // reversing the sweep direction draws an identical arc backwards.
+    // `tilt` swings the arc off the facing axis so consecutive swings fan out
+    // instead of repainting one line. Note it cannot make two swings *cross*:
+    // arcs struck from the same spot are concentric, and concentric circles
+    // never meet however they are tilted. A Cross needs either a line through
+    // an arc, or two arcs struck from different places — which is why moving
+    // between swings is the deliberate act V0.4 rewards.
     const mid = facing + (g.tilt || 0);
     return {
       type: g.type || 'arc',
       arc: {
-        cx: pos.x, cz: pos.z,
+        cx: ox, cz: oz,
         r: g.reach,
         a0: mid - g.sweep * 0.5,
         a1: mid + g.sweep * 0.5,

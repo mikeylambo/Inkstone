@@ -539,3 +539,66 @@ body { font-size: calc(15px * var(--text-scale)); }
   border-bottom: 1px solid rgba(120, 113, 108, 0.3);
   padding-bottom: 4px;
 }
+
+/* ==========================================================================
+   V0.4 — Combat Calligraphy
+   ========================================================================== */
+
+.glyph-ref { margin-top: 18px; }
+.glyph-ref h3 {
+  margin: 14px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: #78716c;
+  border-bottom: 1px solid rgba(120, 113, 108, 0.3);
+  padding-bottom: 4px;
+}
+.glyph-row {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 8px;
+  border-left: 2px solid transparent;
+}
+.glyph-row:hover { background: rgba(120, 113, 108, 0.1); border-left-color: var(--vermilion); }
+.glyph-kanji {
+  font-family: 'Yuji Syuku', serif;
+  font-size: 34px;
+  color: var(--vermilion);
+  text-align: center;
+  line-height: 1;
+}
+.glyph-body { display: flex; flex-direction: column; gap: 2px; }
+.glyph-name {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: #fafaf9;
+}
+.glyph-how { font-size: 11px; color: #d6d3d1; line-height: 1.45; }
+.glyph-does { font-size: 11px; color: #a8a29e; line-height: 1.45; font-style: italic; }
+
+/* --- results: which forms this run wrote --- */
+
+.results-forms h3 {
+  margin: 12px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: #78716c;
+}
+.form-row { display: flex; gap: 10px; }
+.form-seal {
+  font-family: 'Yuji Syuku', serif;
+  font-size: 30px;
+  line-height: 1;
+  color: rgba(120, 113, 108, 0.35);
+  border: 1px dashed rgba(120, 113, 108, 0.3);
+  padding: 5px 10px;
+}
+/* a form you actually wrote is stamped, not merely listed */
+.form-seal.on {
+  color: var(--vermilion);
+  border: 1px solid var(--vermilion);
+  background: rgba(185, 28, 28, 0.09);
+}

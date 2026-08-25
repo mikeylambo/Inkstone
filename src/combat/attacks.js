@@ -17,9 +17,8 @@ import { TUNING, attackDuration } from '../tuning.js';
  *   type     the registry stroke type — what V0.4's glyph checks match on
  *   reach    metres: arc radius, or total length of a line
  *   sweep    radians of arc (arc only)
- *   tilt     radians the arc is swung off the facing axis (arc only). This is
- *            what makes a string cross itself — reversing the sweep direction
- *            just draws the same arc backwards.
+ *   tilt     radians the arc is swung off the facing axis (arc only), so
+ *            consecutive swings fan out instead of repainting one line
  *   lateral  metres of sideways tilt (line only) — what makes a diagonal read
  *   offset   metres forward of the attacker before the mark is placed
  *   width    ink weight in metres
@@ -36,9 +35,10 @@ export const ATTACK_META = {
   },
   light2: {
     label: 'LIGHT 2', track: 'light2', sound: 'light2', trail: 0xb91c1c, stroke: 'horizontal',
-    // tilted off the facing axis so it genuinely crosses hit 1 — the shape
-    // V0.4's Cross recognition will be looking for
-    ink: { kind: 'arc', type: 'horizontal', reach: 2.6, sweep: 1.85, width: 0.44, offset: 0, tilt: 0.95 },
+    // Tilted and pushed forward so hit 2 is a distinct mark rather than a
+    // redraw of hit 1. It cannot *cross* hit 1 — arcs struck from one spot are
+    // concentric — so the string's Cross comes from hit 3, which is a line.
+    ink: { kind: 'arc', type: 'horizontal', reach: 2.6, sweep: 1.85, width: 0.44, offset: 0.5, tilt: 0.95 },
   },
   light3: {
     label: 'LIGHT 3', track: 'light3', sound: 'light3', trail: 0x1c1917, stroke: 'diagonal',

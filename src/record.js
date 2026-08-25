@@ -32,12 +32,13 @@ export const EV = {
   POS: 10,
   SPAWN: 11,
   RUN_END: 12,
+  GLYPH: 13,      // V0.4 — a recognised shape, and what it cost to draw
 };
 
 export const EV_NAME = Object.fromEntries(Object.entries(EV).map(([k, v]) => [v, k]));
 
 /** Bumped when the event shape changes, so a stored record knows its own age. */
-export const RECORD_FORMAT = 3;
+export const RECORD_FORMAT = 4;
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -100,6 +101,17 @@ export class RunRecord {
     });
   }
 
+  /**
+   * A recognised glyph. `n` is how many marks it spent and `k` its kanji, so
+   * the print can stamp the shape without importing the glyph table.
+   */
+  glyph(step, id, kanji, at, radius, strokeCount) {
+    return this.push({
+      t: step, e: EV.GLYPH, g: id, k: kanji,
+      x: r2(at.x), z: r2(at.z), r: r2(radius), n: strokeCount,
+    });
+  }
+
   /** Player position, sampled at record.posSampleHz rather than every step. */
   samplePos(step, pos) {
     if (step - this.lastPosStep < this.posEvery) return null;
@@ -139,7 +151,7 @@ export class RunRecord {
       cur = {
         wave: waveIndex + 1, startStep: step, endStep: step, timeSeconds: 0,
         hits: 0, kills: 0, damageTaken: 0, damageDealt: 0, parries: 0,
-        bestCombo: 0, grade: null,
+        glyphs: 0, bestCombo: 0, grade: null,
       };
       out.push(cur);
     };
@@ -155,6 +167,7 @@ export class RunRecord {
           if ((e.c || 0) > cur.bestCombo) cur.bestCombo = e.c || 0;
           break;
         case EV.KILL: cur.kills++; break;
+        case EV.GLYPH: cur.glyphs++; break;
         case EV.PLAYER_HURT: cur.damageTaken += e.d || 0; break;
         case EV.PARRY: cur.parries++; break;
       }

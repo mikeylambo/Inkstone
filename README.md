@@ -3,14 +3,14 @@
 A high-impact character-action scoresmith where every sword stroke writes on the
 battlefield, and what you've written changes how the fight plays.
 
-**Current phase: V0.3 — The Canvas Exists.**
+**Current phase: V0.4 — Combat Calligraphy.**
 See [REPORT.md](REPORT.md) for gate results.
 
-Every grounded attack now leaves a real mark on the floor, and those marks are
-part of the simulation rather than decoration: wet ink is slippery, set ink is
-solid, and a run's marks are what the scroll print draws. The frame from V0.2.6
-supports both endgames — a campaign (*Pilgrimage*) and a pure scoresmith
-(*Scrolls*) — with only the second built.
+Every grounded attack leaves a real mark on the floor, those marks are part of
+the simulation rather than decoration — and now the marks add up to *shapes*.
+Cross 十, Enso 〇 and Triad 三 are recognised in ink you have already laid and
+fire in the fight. The frame from V0.2.6 supports both endgames — a campaign
+(*Pilgrimage*) and a pure scoresmith (*Scrolls*) — with only the second built.
 
 The game was called SUMI through V0.2.5. Saves migrate automatically.
 
@@ -55,6 +55,27 @@ disagree with the mark you actually leave.
 
 A readability cap (`ink.maxLive`) keeps the canvas legible by pushing the oldest
 marks into an early fade rather than popping them.
+
+## The forms
+
+A glyph is **relational** — never a property of an attack. No move "is a Cross";
+a Cross is two marks that happen to intersect at an angle, found by asking the
+registry about geometry that already exists. Recognition runs in the fixed step
+with no rng, so a replay draws the same shapes at the same moments.
+
+| | Drawn by | Does |
+| --- | --- | --- |
+| **十 Cross** | A straight mark cut through an arc at more than 36°. Finishing the light string does it — hit 3 is a line through the first two arcs. | Severs at the crossing, and leaves the Stain splat-armed to be thrown into your set ink |
+| **〇 Enso** | Ink closing 281° around one centre. The falling stroke draws one alone; so do two swings struck from opposite sides. | Drags everything inside toward the centre and holds it |
+| **三 Triad** | Three *straight* marks within 19° of parallel. Three launchers stepped sideways. | A wave along every line at once |
+
+Swings struck from one spot are concentric arcs and can never cross each other —
+so a Cross needs a straight mark through a curve. **The Inkstone → Strokes**
+lists all three with tolerances read straight from the tuning, so the page
+cannot describe a shape the game will not accept.
+
+A glyph spends the marks that formed it, and there is a cooldown between them
+(`glyphs.cooldown`), so one busy corner of the canvas cannot fire forever.
 
 ## The words
 
@@ -119,9 +140,10 @@ Every screen, including every placeholder, is reachable and escapable on a
 gamepad alone — gate FR1.
 
 **THE INKSTONE** — `TECHNIQUES · STROKES · FINISHING STROKE · PIGMENT · RECORD`.
-Techniques and Strokes are real — Strokes documents the ink lifecycle and every
-mark the kit can leave, generated from the attack table. Finishing Stroke and
-Pigment are reserved and say so.
+Techniques and Strokes are real — Strokes documents the ink lifecycle, every
+mark the kit can leave, and the three forms those marks can add up to, all
+generated from the attack table and the tuning. Finishing Stroke and Pigment
+are reserved and say so.
 
 **ARCHIVE** — `SCROLL GALLERY · RECORDS · INK RECORD · LEADERBOARDS`. The
 gallery keeps your last 20 run prints as PNGs in IndexedDB; each is viewable,
@@ -221,6 +243,7 @@ src/
   gfx/slashfan.js    The stylized attack mark (parked behind fx.fan.enabled=0)
   gfx/trail.js       Ribbon: the swept blade path — the hero trail
   strokes.js         The stroke registry — the canvas, as simulation
+  glyphs.js          Relational shape recognition over the registry
   gfx/inkcanvas.js   The canvas, as pixels: one mesh, one draw call
   entities/tengu.js  Enemy 2 — Tengu Stain, and its thrown ink
 tools/shotserver.mjs Dev-only screenshot sink (see below)

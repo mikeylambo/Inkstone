@@ -605,6 +605,57 @@ export const TUNING = {
     widthMul: 1.0,
   },
 
+  /**
+   * ---- V0.4 COMBAT CALLIGRAPHY ----
+   * Glyph recognition thresholds and what each shape does when it lands.
+   * Recognition is relational geometry over the stroke registry, so these are
+   * all shape tolerances rather than move properties.
+   */
+  glyphs: {
+    enabled: 1,
+    window: 240,             // sim steps a mark stays eligible (4s at 60Hz)
+    pathSegments: 12,        // samples per stroke when testing shapes
+    /**
+     * Seconds between glyphs. Measured at 0.45 a scripted fight drew one every
+     * 1.19s, which reads as ambient rather than as an event; this is the lever
+     * that decides whether a glyph is punctuation or wallpaper.
+     */
+    cooldown: 0.90,
+
+    /** 十 Cross — two marks crossing at an angle. */
+    crossMinAngle: 0.62,     // rad (~36°); below this it reads as a redraw
+    crossRadius: 3.6,
+    crossDamage: 42,
+    crossKnock: 7.0,
+    crossHitStop: 0.11,
+    crossShake: 0.34,
+    crossScore: 90,
+
+    /** 〇 Enso — ink that closes on itself. */
+    ensoCoverage: 4.9,       // rad of turn that counts as closed (~280°)
+    ensoRadiusRatio: 2.6,    // max/min radius — above this it is a blob
+    ensoMinRadius: 1.4,
+    ensoGatherRadius: 5.5,   // how far apart marks can be and still form a ring
+    ensoMaxStrokes: 6,
+    ensoPull: 15.0,          // inward pull applied to anything inside
+    ensoHold: 0.85,          // seconds of hitstun on the held
+    ensoDamage: 18,
+    ensoHitStop: 0.09,
+    ensoShake: 0.26,
+    ensoScore: 130,
+
+    /** 三 Triad — three parallel marks. */
+    triadMaxAngle: 0.34,     // rad from parallel (~19°)
+    triadMinGap: 0.9,        // metres between lines; closer is one thick line
+    triadMaxGap: 6.5,
+    triadRadius: 5.0,
+    triadDamage: 26,
+    triadKnock: 11.0,
+    triadHitStop: 0.13,
+    triadShake: 0.42,
+    triadScore: 170,
+  },
+
   /** Enemy 2 — Tengu Stain. Ranged; drops splotches that slow while wet. */
   tengu: {
     maxHp: 70,

@@ -1,6 +1,9 @@
 /**
  * The scroll print — a top-down drawing of one run, rendered from RunRecord.
  *
+ * Since V0.4 the recognised glyphs are stamped over it in vermilion, so the
+ * scroll says not just what you drew but what it *became*.
+ *
  * Since V0.3 the ink is the subject. Every stroke the registry laid is in the
  * record, and the print draws them as the dominant layer — weighted by the
  * stroke's own ink width, in the player's sumi or an enemy's grey wash, with
@@ -101,6 +104,29 @@ export function renderPrint(record, summary, opts = {}) {
     draw(true);
     draw(false);
     ctx.globalAlpha = 1;
+  }
+
+  // --- glyphs: stamped where they were drawn ---
+  //
+  // Above the ink and below the seal. A run that wrote three shapes should be
+  // readable as such from across a room, which is the whole point of the print.
+  const glyphs = record.filter(EV.GLYPH);
+  for (const g of glyphs) {
+    const [gx, gy] = toPx(g.x, g.z);
+    const rr = Math.max(16, (g.r || 3) / mPerPx);
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = VERMILION;
+    ctx.beginPath();
+    ctx.arc(gx, gy, rr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = VERMILION;
+    ctx.font = `${Math.round(rr * 1.1)}px "Yuji Syuku", serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(g.k || '·', gx, gy);
+    ctx.restore();
   }
 
   // --- movement path: a thread under the ink, not the subject ---

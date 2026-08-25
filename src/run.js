@@ -10,7 +10,9 @@
  * The player object itself persists (its meshes and rig are expensive to
  * rebuild); `resetForRun` puts it back to a known state.
  */
+import * as THREE from 'three';
 import { TUNING } from './tuning.js';
+import { Audio } from './audio.js';
 import { World } from './world.js';
 import { Input, ACTIONS } from './input.js';
 import { Rng } from './rng.js';
@@ -19,6 +21,7 @@ import { Oni } from './entities/oni.js';
 import { Tengu } from './entities/tengu.js';
 import { RunRecord } from './record.js';
 import { StrokeRegistry } from './strokes.js';
+import { recognise, GLYPHS } from './glyphs.js';
 import { Score } from './score.js';
 
 export const MODES = {
@@ -78,6 +81,9 @@ export class Run {
     this.projectiles = [];
     /** Set/Dry pillar strokes as splat surfaces. Rebuilt once per sim step. */
     this.pillars = [];
+    /** Recognised shapes, and the beat between them. */
+    this.glyphCooldown = 0;
+    this.glyphsDrawn = [];
 
     this.record.meta = {
       seed: this.seed, mode: this.mode, scroll: this.config.scroll,
@@ -254,6 +260,7 @@ export class Run {
     // the canvas ages inside the fixed step, like everything else that a
     // replay has to reproduce
     this.strokes.update(dt);
+    if (this.glyphCooldown > 0) this.glyphCooldown = Math.max(0, this.glyphCooldown - dt);
     // once per step, not once per enemy per step
     this.strokes.pillarSurfaces(this.pillars);
     this.updateProjectiles(dt);
@@ -369,8 +376,38 @@ export class Run {
 
   // ------------------------------------------------- events from combat code
 
-  /** Every registry stroke lands in the record; the print reads it back. */
-  onStroke(s) { this.record.stroke(this.step, s); }
+  /**
+   * Every registry stroke lands in the record, and is then tested against what
+   * is already on the canvas. Recognition runs here rather than in the player
+   * so that anything which lays ink — the tengu today, whatever comes later —
+   * goes through the same door.
+   */
+  onStroke(s) {
+    this.record.stroke(this.step, s);
+    if (s.owner === 'player') this.tryGlyph(s);
+  }
+
+  /** Test the mark just laid against the canvas, and fire what it completes. */
+  tryGlyph(fresh) {
+    if (this.glyphCooldown > 0) return null;
+    const found = recognise(this.strokes, fresh, this.step);
+    if (!found) return null;
+
+    const G = TUNING.glyphs;
+    this.glyphCooldown = G.cooldown;
+    // spend the marks so one long-lived line cannot keep completing shapes
+    for (const st of found.strokes) st.glyph = found.def.id;
+
+    this.record.glyph(this.step, found.def.id, found.def.kanji,
+      found.at, found.radius, found.strokes.length);
+    this.glyphsDrawn.push({ id: found.def.id, step: this.step });
+
+    applyGlyph(found, this);
+    this.score.onGlyph(found.def.id, glyphPoints(found.def.id), World.combo);
+    World.addCombo(1);
+    World.banner(found.def.kanji);
+    return found;
+  }
 
   addProjectile(p) { this.projectiles.push(p); return p; }
 
@@ -435,6 +472,7 @@ export class Run {
       difficulty: this.config.difficulty,
       modifiers: this.config.modifiers,
       waveStats: this.usesWaves ? this.record.waveStats() : [],
+      glyphsDrawn: this.glyphsDrawn.length,
       seed: this.seed,
       day: this.day,
       wave: this.usesWaves ? Math.max(1, this.waveNumber) : 0,
@@ -446,6 +484,93 @@ export class Run {
     };
   }
 }
+
+/** Score for a glyph kind. Kept beside the effects, not scattered. */
+function glyphPoints(id) {
+  const G = TUNING.glyphs;
+  return id === 'cross' ? G.crossScore : id === 'enso' ? G.ensoScore : G.triadScore;
+}
+
+/**
+ * What a glyph does to the fight.
+ *
+ * Each shape reads as the thing it looks like: a Cross severs at the crossing,
+ * an Enso encloses and holds, a Triad sends a wave along three lines. All three
+ * act on enemies through the existing hit vocabulary rather than inventing new
+ * reaction classes — the point of V0.4 is the *shape*, not new hit feel.
+ */
+function applyGlyph(found, run) {
+  const G = TUNING.glyphs;
+  const id = found.def.id;
+  const at = found.at;
+  const hit = [];
+
+  for (const e of run.enemies) {
+    if (e.dead) continue;
+    const d = Math.hypot(e.position.x - at.x, e.position.z - at.z);
+    if (d <= found.radius + (e.radius || 1)) hit.push({ e, d });
+  }
+
+  if (id === 'cross') {
+    for (const { e } of hit) {
+      const nx = e.position.x - at.x, nz = e.position.z - at.z;
+      const len = Math.hypot(nx, nz) || 1;
+      e.hp -= G.crossDamage;
+      e.hitstun = Math.max(e.hitstun, 0.5);
+      e.flashTimer = 0.1;
+      e.squash = 0.3;
+      e.vel.x += (nx / len) * G.crossKnock;
+      e.vel.z += (nz / len) * G.crossKnock;
+      e.splatArmed = true;             // a severed Stain can be thrown into ink
+      if (e.hp <= 0) e.die();
+    }
+    World.fx.shockwave(atVec(at), found.radius, 0.4);
+    World.requestHitStop(G.crossHitStop);
+    World.camRig.addTrauma(G.crossShake);
+  } else if (id === 'enso') {
+    for (const { e } of hit) {
+      const nx = at.x - e.position.x, nz = at.z - e.position.z;
+      const len = Math.hypot(nx, nz) || 1;
+      e.hp -= G.ensoDamage;
+      // held, not launched: the ring closes on them
+      e.hitstun = Math.max(e.hitstun, G.ensoHold);
+      e.flashTimer = 0.1;
+      e.vel.x = (nx / len) * G.ensoPull;
+      e.vel.z = (nz / len) * G.ensoPull;
+      if (e.hp <= 0) e.die();
+    }
+    World.fx.ring(atVec(at), found.radius, 0.55, 0xb91c1c, 0.9);
+    World.requestHitStop(G.ensoHitStop);
+    World.camRig.addTrauma(G.ensoShake);
+  } else {
+    // triad: a wave along every line at once
+    for (const { e } of hit) {
+      const nx = e.position.x - at.x, nz = e.position.z - at.z;
+      const len = Math.hypot(nx, nz) || 1;
+      e.hp -= G.triadDamage;
+      e.hitstun = Math.max(e.hitstun, 0.45);
+      e.flashTimer = 0.1;
+      e.squash = 0.25;
+      e.vel.x += (nx / len) * G.triadKnock;
+      e.vel.z += (nz / len) * G.triadKnock;
+      e.splatArmed = true;
+      if (e.hp <= 0) e.die();
+    }
+    for (const st of found.strokes) {
+      World.fx.inkBurst(strokeMid(st), 10, 'sumi', 8);
+    }
+    World.fx.shockwave(atVec(at), found.radius, 0.45);
+    World.requestHitStop(G.triadHitStop);
+    World.camRig.addTrauma(G.triadShake);
+  }
+
+  World.fx.inkBurst(atVec(at, 0.5), 24, 'vermilion', 12);
+  Audio.impact(id === 'enso' ? 'launcher' : 'heavy');
+}
+
+const _gv = new THREE.Vector3();
+function atVec(at, y = 0.05) { return _gv.set(at.x, y, at.z).clone(); }
+function strokeMid(st) { return new THREE.Vector3(st.midX, 0.3, st.midZ); }
 
 const NUMERALS = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
 

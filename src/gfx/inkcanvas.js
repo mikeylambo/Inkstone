@@ -97,21 +97,12 @@ export class InkCanvas {
     return a * stroke.alpha;
   }
 
-  /** Sample a stroke into world-space points along its path. */
-  samplePath(s, out) {
-    out.length = 0;
-    if (s.arc) {
-      const { cx, cz, r, a0, a1 } = s.arc;
-      for (let i = 0; i < SEG_ARC; i++) {
-        const t = i / (SEG_ARC - 1);
-        const a = a0 + (a1 - a0) * t;
-        out.push(cx + Math.sin(a) * r, cz + Math.cos(a) * r);
-      }
-    } else {
-      out.push(s.ax, s.az, s.bx, s.bz);
-    }
-    return out;
-  }
+  /**
+   * Sample a stroke into world-space points. Delegates to the stroke itself so
+   * the drawn curve and the curve glyph recognition reasons about are the same
+   * curve, by construction.
+   */
+  samplePath(s, out) { return s.path(out, SEG_ARC); }
 
   /**
    * Rebuild the geometry from the registry. Called once per rendered frame.

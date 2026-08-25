@@ -14,6 +14,7 @@ import { renderPrint, exportPrintPNG } from './print.js';
 import { SettingsEditor } from './settings.js';
 import { Screen, button, $ } from './ui/screen.js';
 import { TUNING, setTuning } from './tuning.js';
+import { GLYPHS, GLYPH_ORDER } from './glyphs.js';
 
 // ------------------------------------------------------------------- TITLE
 
@@ -211,11 +212,23 @@ export class ResultsScreen extends Screen {
       row('DAMAGE TAKEN', summary.damageTaken);
 
     // --- reserved lines: only when the system that fills them exists ---
-    if (summary.uniqueForms != null) html += row('UNIQUE FORMS', summary.uniqueForms);
+    if (summary.glyphsDrawn) html += row('GLYPHS DRAWN', summary.glyphsDrawn);
+    if (summary.uniqueForms != null) html += row('UNIQUE FORMS', `${summary.uniqueForms} / 3`);
     if (summary.pigmentCaptured != null) html += row('PIGMENT CAPTURED', `${Math.round(summary.pigmentCaptured * 100)}%`);
 
     html += row('SCORE', summary.score, 'big');
     stats.innerHTML = html;
+
+    // --- which shapes, and how often ---
+    const forms = this.root.querySelector('.results-forms');
+    const kinds = summary.glyphKinds || [];
+    forms.innerHTML = kinds.length
+      ? '<h3>FORMS WRITTEN</h3><div class="form-row">' + GLYPH_ORDER.map((id) => {
+          const on = kinds.includes(id);
+          return `<span class="form-seal${on ? ' on' : ''}" title="${GLYPHS[id].label}">` +
+                 `${GLYPHS[id].kanji}</span>`;
+        }).join('') + '</div>'
+      : '';
 
     // --- modifiers (reserved; a run with none renders nothing) ---
     const mods = this.root.querySelector('.results-mods');
@@ -322,10 +335,10 @@ export class ResultsScreen extends Screen {
     const table = document.createElement('div');
     table.className = 'wave-table';
     table.innerHTML =
-      '<div class="wrow whead"><span>WAVE</span><span>TIME</span><span>HITS</span><span>TAKEN</span><span>BEST</span><span>MARK</span></div>' +
+      '<div class="wrow whead"><span>WAVE</span><span>TIME</span><span>HITS</span><span>TAKEN</span><span>GLYPHS</span><span>MARK</span></div>' +
       waves.map((w) =>
         `<div class="wrow"><span>${w.wave}</span><span>${w.timeSeconds.toFixed(1)}s</span>` +
-        `<span>${w.hits}</span><span>${w.damageTaken}</span><span>${w.bestCombo}</span>` +
+        `<span>${w.hits}</span><span>${w.damageTaken}</span><span>${w.glyphs || 0}</span>` +
         `<span class="wmark">${w.grade || '—'}</span></div>`).join('');
     det.appendChild(table);
 
