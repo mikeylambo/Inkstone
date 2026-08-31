@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": [],
+    "paths": {
+      "@slu/web-shell": ["./vendor/slu-web-shell/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/shell/**/*.ts", "src/shell/**/*.d.ts"]
+}

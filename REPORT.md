@@ -1,3 +1,158 @@
+# INKSTONE → SLU Web Shell Migration (V0.2.7) · Gate Report
+
+Falsifiable question: **is it the same game on a new foundation?**
+
+This is a port, not a rewrite and not a combat change. The shell owns the meta
+layer; Inkstone's combat sim stays untouched behind the `ThreeAdapter`. The bar
+is equivalence — the migration is done when the game plays the same, not when it
+compiles.
+
+## What moved, and what did not
+
+`@slu/web-shell` **v1.0.2** is consumed as the built package, vendored pristine
+under `vendor/slu-web-shell/` (96 modules, byte-for-byte the shipped `dist/`).
+The Inkstone side is a thin, strictly-typed glue layer under `src/shell/`:
+
+| File | Role |
+| --- | --- |
+| `src/shell/main.ts` | boots `createGameApp` with the `character-action` assembly; wires the adapter hooks; maps content; bridges run-end into the shell flow |
+| `src/shell/engine.ts` | the renderer + 60 Hz fixed-step loop, extracted from the old `main.js`. Drives the existing `Run` directly. The per-step call order is a **verbatim** port |
+| `src/shell/content.ts` | frame content: TECHNIQUES → move-list, modes, difficulty map, run-stat mapping |
+| `src/shell/profileShim.ts` | one-release save shim: legacy `inkstone.profile.v2` → shell `SaveManager` |
+| `src/shell/gallery.ts` | prints through the shell `IndexedDBStorage`, eviction rule preserved |
+
+The entire combat simulation is imported **untouched** behind the boundary:
+`run.js, record.js, rng.js, world.js, score.js, combat/*, entities/*, gfx/*,
+glyphs.js, strokes.js, camera.js, anim/*, tuning.js, techniques.js, print.js`.
+`git diff` over every one of those is empty — that is the mechanism by which M1
+and M2 hold, not a claim about them.
+
+The frame maps 1:1 onto Inkstone's hand-built frame:
+
+* **modes** — `training ← Kata`, `trials ← Daily Scroll / Endless / Free Seed`
+  (leaderboard variants), `missions ← Pilgrimage` (locked placeholder, zero
+  available entries).
+* **loadout ← the Inkstone meta-screen**, **results ← Finished Calligraphy**,
+  **move-list module ← the TECHNIQUES table**, **ranking ← the rank seal**.
+* difficulties expose the frame's `human / hunter / master` ids; the multiplier
+  axis stays reserved (all three resolve to Inkstone's tuned `standard` this
+  pass — a documented follow-up, not an untested combat change).
+
+## A note on sequencing
+
+The brief scoped this migration at V0.2.7, *before* the V0.3 canvas work. In
+this repository V0.3 (the stroke canvas) and V0.4 (glyph recognition) have
+already shipped on `main`. That does not change the plan — it improves it: the
+canvas, stroke registry and glyph recogniser ride along **untouched behind the
+adapter**, which is exactly the intended end-state ("build the meta-surface once,
+on the shared foundation"). The old frame stays on `main`; the shell frame is
+`index.shell.html` and stays side-by-side until the live gates (M2/M3/M7) are
+signed off, then `index.html` swaps to it in one line.
+
+## Gates
+
+Evidence that can be produced headlessly is produced here and re-runnable with
+`npm run shell:verify` (`tsc -p tsconfig.shell.json` + `node tools/audit-shell.mjs`).
+Evidence that needs a browser or a GPU is marked as such, with the exact
+procedure to produce it.
+
+### ✅ M1 — Determinism preserved (by construction; byte-capture pending a browser)
+
+Same seed + input log → identical `RunRecord` hash **and** identical
+stroke/spawn hashes, pre- vs post-migration. This is the S3/G3.4 lineage and is
+non-negotiable, so it is defended structurally rather than asserted:
+
+* Every file that produces the hashes is untouched. `RunRecord.hash()` (FNV-1a
+  over the event stream) and `RunRecord.spawnHash()` (`SPAWN|WAVE` events) are
+  the identical code path.
+* `engine.ts`'s `simStep()` is a line-for-line port of `main.js`'s: `Input.step`
+  → `player.update` → `enemies` → reap → `fx`/`camRig` → combo decay →
+  `run.update`. The sim reads the same `World`/`Input`/`TUNING` singletons in the
+  same order, so the event stream — and therefore the hash — is byte-preserved.
+* The old replay harness (`window.INKSTONE.run(steps, {press})`) is unchanged on
+  the `index.html` entry, and the shell entry exposes `window.INKSTONE_SHELL`.
+
+**To capture the byte-equal proof (browser):** on `index.html`, seed `?seed=d4`,
+drive a fixed input log via `INKSTONE.run(...)`, record `World.run.record.hash()`
+and `.spawnHash()`. Repeat on `index.shell.html`. The pair must match the `main`
+build's pair exactly. Documented, not yet captured in this headless environment.
+
+### ✅ M2 — Combat byte-identical (by construction; clip pending a machine)
+
+`tuning.js` and the whole combat tree are diff-clean, so a Kata session is the
+same sim it was on `main`. **Side-by-side clip** (Kata on `main` vs on the shell)
+needs a screen recorder and is the human sign-off.
+
+### ◐ M3 — Full pad-only flow through the shell UI (structural; walkthrough pending)
+
+The shell's `DOMGameUI` + `BrowserInputSource` are pad-native (D-pad / A / B
+bound in `createGameApp`). The full path is wired and typechecks:
+`title → main-menu → PLAY (mode) → difficulty → brush → loadout → run → pause →
+results → AGAIN`, gamepad only. Two things had to be handled consumer-side
+(tickets SG-1, SG-4 below). **Live pad walkthrough** is the sign-off.
+
+### ✅ M4 — Print → gallery round-trips through shell storage; eviction intact
+
+`node tools/audit-shell.mjs` → **PASS**: 25 prints saved through `ShellGallery`
+(over the shell's storage), store evicts to 20 oldest-first, a blob round-trips
+back out of storage byte-intact. Reload-survival rides on `IndexedDBStorage`.
+
+### ✅ M5 — Profile migrates (bests intact)
+
+**PASS**: a legacy `inkstone.profile.v2` blob with daily + free bests loads
+through the shell `SaveManager` on first boot (`migratedFromLegacy: true`), bests
+and fields intact; the second load comes from the shell envelope, not the legacy
+blob (no re-migration). One-release shim, as before; legacy key never deleted.
+
+### ✅ M6 — Move-list = kit (ported FR4 audit)
+
+**PASS**: `auditTechniques()` reports 12 techniques, 0 missing, 0 phantom against
+`ATTACK_META`; the shell `MoveList` is fed exactly that table (`toShellMoves`).
+
+### ◐ M7 — 60 fps on integrated GPU, 8 enemies (render path unchanged; measure pending)
+
+The render path is unchanged — `engine.ts` renders the same scene with the same
+`resolutionScale` option the old loop did. The `debug.spawn(8)` harness is
+intact. **Measurement** on the integrated-GPU dev machines (no discrete GPU
+assumed) is the sign-off.
+
+### ✅ M8 — Shell untouched; consumer typechecks green
+
+Zero edits to `@slu/web-shell` — the vendored `dist/` is the pristine v1.0.2
+package. `tsc -p tsconfig.shell.json` exits 0: the typed glue typechecks against
+the public API only.
+
+## Shell-gap tickets (for the shell team — Inkstone is a consumer)
+
+* **SG-1** — the turnkey flow shows a full-screen `gameplay-placeholder` while
+  playing, which occludes the renderer; there is no built-in "hide UI during
+  play" hook. Worked around by hiding `#ui` on session phase `playing`. *Ask: a
+  `GameFlowController` hook (or a transparent play screen) so the renderer shows
+  through without a consumer patch.*
+* **SG-2** — `character-action` capabilities force `character-select` and
+  `stage-select` into the setup queue; a game with one kit and one arena can't
+  opt out without editing `capabilities.ts`. Collapsed to confirm steps here.
+  *Ask: let an assembly declare which setup steps it needs.*
+* **SG-3** — no built-in results trigger (the game must call `flow.showResults()`
+  itself), and the results screen has no slot for a rendered artifact; the
+  Finished-Calligraphy print is mounted by decorating the shell's own DOM. *Ask:
+  a media/preview slot on the results model.*
+* **SG-4** — pause → Quit calls `shell.quit()` but does not unload the level, so
+  the renderer's run leaks; the consumer disposes on `game:quit`. *Ask: quit
+  should unload the level.*
+* **SG-5** — the DOM UI has no text-input choice, so Free Seed can't take a typed
+  seed through the shell; surfaced as a mode variant with a random seed. *Ask: an
+  input-capable choice type.*
+
+## How to run it
+
+```
+npm run shell:verify     # tsc consumer check + headless M4/M5/M6 audit
+npx vite --config vite.config.js   # dev: index.html (old) + index.shell.html (shell)
+```
+
+---
+
 # V0.4 — Combat Calligraphy · Phase Report
 
 Falsifiable question: **does drawing a shape feel like a discovery?**

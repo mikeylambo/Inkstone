@@ -1,0 +1,19 @@
+{
+  "//": "Emits the sim-free shell glue (profile shim + gallery) to .audit/ so the headless gate audit can exercise the REAL code against the REAL shell classes.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": ".audit",
+    "rootDir": "src/shell",
+    "declaration": false,
+    "types": [],
+    "paths": {
+      "@slu/web-shell": ["./vendor/slu-web-shell/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/shell/profileShim.ts", "src/shell/gallery.ts"]
+}

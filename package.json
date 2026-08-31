@@ -7,13 +7,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "shell:check": "tsc -p tsconfig.shell.json",
+    "shell:audit": "node tools/audit-shell.mjs",
+    "shell:verify": "npm run shell:check && npm run shell:audit"
   },
   "dependencies": {
+    "@slu/web-shell": "file:vendor/slu-web-shell",
     "three": "0.185.1",
     "tone": "15.1.22"
   },
   "devDependencies": {
+    "typescript": "^5.8.3",
     "vite": "8.2.2"
   }
 }

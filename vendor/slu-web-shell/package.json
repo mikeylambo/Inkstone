@@ -1,0 +1,42 @@
+{
+  "name": "@slu/web-shell",
+  "version": "1.0.2",
+  "description": "Renderer-neutral web game shell with composable genre frames and reusable game modules.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./frames": "./dist/frames/index.js",
+    "./adapters": "./dist/adapters/index.js",
+    "./modules": "./dist/modules/index.js",
+    "./assemblies": "./dist/assemblies/index.js",
+    "./ui-shell": "./dist/ui-shell/index.js",
+    "./bootstrap": "./dist/bootstrap/index.js"
+  },
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "verify": "npm run verify:base && npm run verify:consumers",
+    "create-game": "node tools/create-slu-game.mjs",
+    "verify:base": "npm run check && npm test",
+    "verify:consumers": "node tools/verify-consumers.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "game",
+    "webgame",
+    "threejs",
+    "babylonjs",
+    "canvas2d",
+    "slu"
+  ],
+  "license": "UNLICENSED",
+  "bin": {
+    "create-slu-game": "./tools/create-slu-game.mjs"
+  }
+}

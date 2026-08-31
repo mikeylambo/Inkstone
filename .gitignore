@@ -8,3 +8,9 @@ shots/
 .DS_Store
 export/
 *.zip
+.audit/
+
+# The vendored @slu/web-shell v1.0.2 built package must be committed (it is the
+# pinned dependency), so exempt its dist/ from the build-output ignore above.
+!vendor/slu-web-shell/dist/
+!vendor/slu-web-shell/dist/**
