@@ -60,7 +60,7 @@ function devMode(): boolean {
 async function boot(): Promise<void> {
   document.title = `INKSTONE — V${VERSION}`;
   const versionEl = document.getElementById("version");
-  if (versionEl) versionEl.textContent = `INKSTONE · V${VERSION} · SHELL`;
+  if (versionEl) versionEl.textContent = `INKSTONE · V${VERSION}`;
 
   const container = document.getElementById("canvas-container");
   const uiRoot = document.getElementById("ui");

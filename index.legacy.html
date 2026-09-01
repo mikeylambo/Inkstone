@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INKSTONE</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23dcd3be'/%3E%3Ctext x='16' y='25' font-size='26' text-anchor='middle' fill='%231c1917'%3E%E5%A2%A8%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Shippori+Mincho:wght@700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body data-state="BOOT">
+  <div id="canvas-container"></div>
+
+  <div class="paper-overlay"></div>
+  <div class="ink-wash-vignette"></div>
+
+  <!-- ============= RUN HUD (RUN + PAUSE + WAVE_CHOICE only) ============= -->
+  <div id="hud">
+    <div class="panel" id="vitals">
+      <div class="panel-title">
+        <span class="kanji">墨</span>
+        <span>INK / VITALS</span>
+        <span id="hp-text" class="mono">100 / 100</span>
+      </div>
+      <div class="bar"><div id="hp-bar" class="bar-fill hp"></div></div>
+      <div class="panel-sub">
+        <span id="lock-state">FREE</span>
+        <span id="combo-count">0 STROKES</span>
+      </div>
+      <div class="panel-sub">
+        <span id="run-mode">—</span>
+        <span id="run-score">0</span>
+      </div>
+      <!-- Reserved: pigment ships in V0.5. The element exists so the HUD
+           layout does not shift when it arrives. -->
+      <div class="panel-sub" id="pigment-slot" style="display:none">
+        <span>PIGMENT</span>
+        <span id="pigment-value">0%</span>
+      </div>
+    </div>
+
+    <div id="version">INKSTONE</div>
+
+    <div class="panel hidden" id="target-info">
+      <div class="panel-title">
+        <span class="kanji">鬼</span>
+        <span id="target-name">ONI STAIN</span>
+        <span id="target-state" class="mono">IDLE</span>
+      </div>
+      <div class="bar"><div id="target-hp-bar" class="bar-fill enemy"></div></div>
+    </div>
+
+    <div id="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
+
+    <div class="panel" id="controls">
+      <div><b>WASD</b> Move</div>
+      <div><b class="c-ink">LMB / J</b> Light</div>
+      <div><b class="c-gold">RMB / K</b> Launcher</div>
+      <div><b class="c-red">MMB / L</b> Heavy · air = Dive</div>
+      <div><b class="c-green">Space</b> Jump</div>
+      <div><b class="c-green">Shift</b> Dash</div>
+      <div><b class="c-blue">F</b> Parry</div>
+      <div><b class="c-purple">Q / Tab</b> Lock-On (toggle)</div>
+      <div><b>Esc</b> Pause</div>
+    </div>
+
+    <div id="hit-banner"></div>
+    <div id="wave-banner"></div>
+  </div>
+
+  <button id="start-btn">始 &nbsp;BEGIN · ENABLE AUDIO</button>
+
+  <!-- ============================== TITLE ============================== -->
+  <div id="screen-title" class="screen hidden">
+    <div class="screen-panel">
+      <div class="logo-wrap">
+        <div class="logo-kanji">墨</div>
+        <div class="logo-text">INKSTONE</div>
+        <div class="logo-sub">every stroke writes on the battlefield</div>
+      </div>
+      <div class="menu-list"></div>
+      <div class="title-foot"></div>
+      <div class="title-credits"></div>
+    </div>
+  </div>
+
+  <!-- =========================== PLAY_SELECT =========================== -->
+  <div id="screen-play" class="screen hidden">
+    <div class="screen-panel">
+      <h2 class="screen-head"><span class="kanji">遊</span> PLAY</h2>
+      <div class="menu-list"></div>
+      <div class="play-foot"></div>
+    </div>
+  </div>
+
+  <!-- ========================== SCROLL_SELECT ========================== -->
+  <div id="screen-scrolls" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">巻</span> SCROLLS</h2>
+      <div class="difficulty-row"></div>
+      <div class="scroll-list"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================ RUN_SETUP ============================ -->
+  <div id="screen-setup" class="screen hidden">
+    <div class="screen-panel">
+      <h2 class="screen-head setup-head"></h2>
+      <p class="setup-blurb"></p>
+      <div class="setup-stats"></div>
+      <div class="setup-options"></div>
+      <div class="menu-list"></div>
+      <div class="setup-foot"></div>
+    </div>
+  </div>
+
+  <!-- =========================== PILGRIMAGE ============================ -->
+  <div id="screen-pilgrimage" class="screen hidden">
+    <div class="screen-panel">
+      <h2 class="screen-head"><span class="kanji">巡</span> PILGRIMAGE</h2>
+      <div class="placeholder-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ========================== THE INKSTONE =========================== -->
+  <div id="screen-inkstone" class="screen hidden">
+    <div class="screen-panel wide stone">
+      <h2 class="screen-head"><span class="kanji">硯</span> THE INKSTONE</h2>
+      <div class="tab-holder"></div>
+      <div class="tab-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================= ARCHIVE ============================= -->
+  <div id="screen-archive" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">蔵</span> ARCHIVE</h2>
+      <div class="tab-holder"></div>
+      <div class="tab-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================= OPTIONS ============================= -->
+  <div id="screen-options" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">調</span> OPTIONS</h2>
+      <div class="options-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================= CREDITS ============================= -->
+  <div id="screen-credits" class="screen hidden">
+    <div class="screen-panel">
+      <h2 class="screen-head"><span class="kanji">印</span> CREDITS</h2>
+      <div class="credits-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- =================== DEV TUNING (?dev=1 only) ====================== -->
+  <div id="screen-devtuning" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">工</span> DEV TUNING</h2>
+      <div class="settings-body"></div>
+      <div class="menu-list"></div>
+    </div>
+  </div>
+
+  <!-- ==================== WAVE_CHOICE (reserved) ======================= -->
+  <div id="screen-wavechoice" class="screen hidden">
+    <div class="screen-panel">
+      <h2 class="screen-head"><span class="kanji">択</span> CHOOSE</h2>
+      <div class="choice-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================== DEATH ============================== -->
+  <div id="screen-death" class="hidden">
+    <div class="death-kanji">討</div>
+  </div>
+
+  <!-- ================== RESULTS / FINISHED CALLIGRAPHY ================= -->
+  <div id="screen-results" class="screen hidden">
+    <div class="screen-panel wide">
+      <h2 class="screen-head"><span class="kanji">書</span> FINISHED CALLIGRAPHY</h2>
+      <div class="results-grid">
+        <div class="results-left">
+          <div class="results-seal"></div>
+          <div class="results-stats"></div>
+          <div class="results-forms"></div>
+          <div class="results-mods"></div>
+          <div class="results-axes"></div>
+          <div class="results-pb"></div>
+          <div class="results-waves"></div>
+          <div class="results-board"></div>
+          <div class="menu-list"></div>
+        </div>
+        <div class="results-right">
+          <div class="print-title">SCROLL</div>
+          <div class="print-frame"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ PAUSE MENU ============================ -->
+  <div id="pause-menu" class="hidden">
+    <div id="pause-panel">
+      <div id="pause-head">
+        <span class="kanji">休</span>
+        <span id="pause-title">PAUSED</span>
+        <button id="pause-resume" data-menu-item>RESUME</button>
+        <button id="pause-restart" data-menu-item>RESTART</button>
+        <button id="pause-scrolls" data-menu-item>RETURN TO SCROLLS</button>
+        <button id="pause-title-btn" data-menu-item>TITLE</button>
+        <button id="pause-abandon" data-menu-item>ABANDON</button>
+      </div>
+      <div id="pause-tabs" class="tabs"></div>
+      <div id="pause-body"></div>
+    </div>
+  </div>
+
+  <div id="debug-panel" class="hidden"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

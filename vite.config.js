@@ -28,12 +28,12 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
-      // Two entry points during the migration: the old hand-rolled frame
-      // (index.html) stays the equivalence baseline until the shell gates are
-      // signed off; the shell frame (index.shell.html) is the port.
+      // The shell frame is the front door now (index.html). The old
+      // hand-rolled frame is kept one release as index.legacy.html for
+      // rollback / side-by-side, then retired.
       input: {
         main: resolve('./index.html'),
-        shell: resolve('./index.shell.html'),
+        legacy: resolve('./index.legacy.html'),
       },
     },
   },

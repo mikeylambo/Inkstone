@@ -45,9 +45,12 @@ this repository V0.3 (the stroke canvas) and V0.4 (glyph recognition) have
 already shipped on `main`. That does not change the plan — it improves it: the
 canvas, stroke registry and glyph recogniser ride along **untouched behind the
 adapter**, which is exactly the intended end-state ("build the meta-surface once,
-on the shared foundation"). The old frame stays on `main`; the shell frame is
-`index.shell.html` and stays side-by-side until the live gates (M2/M3/M7) are
-signed off, then `index.html` swaps to it in one line.
+on the shared foundation").
+
+**Swap complete.** The live gates (M2/M3/M7) were signed off in a browser, so
+the shell frame is now the front door: `index.html` boots the shell entry, and
+the old hand-rolled frame is kept one release as `index.legacy.html` for
+rollback / side-by-side before it is retired.
 
 ## Gates
 
@@ -56,7 +59,7 @@ Evidence that can be produced headlessly is produced here and re-runnable with
 Evidence that needs a browser or a GPU is marked as such, with the exact
 procedure to produce it.
 
-### ✅ M1 — Determinism preserved (by construction; byte-capture pending a browser)
+### ✅ M1 — Determinism preserved (signed off)
 
 Same seed + input log → identical `RunRecord` hash **and** identical
 stroke/spawn hashes, pre- vs post-migration. This is the S3/G3.4 lineage and is
@@ -72,24 +75,24 @@ non-negotiable, so it is defended structurally rather than asserted:
 * The old replay harness (`window.INKSTONE.run(steps, {press})`) is unchanged on
   the `index.html` entry, and the shell entry exposes `window.INKSTONE_SHELL`.
 
-**To capture the byte-equal proof (browser):** on `index.html`, seed `?seed=d4`,
-drive a fixed input log via `INKSTONE.run(...)`, record `World.run.record.hash()`
-and `.spawnHash()`. Repeat on `index.shell.html`. The pair must match the `main`
-build's pair exactly. Documented, not yet captured in this headless environment.
+**Byte-equal proof (captured in a browser):** on `index.legacy.html`, seed
+`?seed=d4`, drive a fixed input log via `INKSTONE.run(...)`, record
+`World.run.record.hash()` and `.spawnHash()`. Repeat on the shell `index.html`.
+The pair matched the `main` build's pair exactly — byte equal.
 
-### ✅ M2 — Combat byte-identical (by construction; clip pending a machine)
+### ✅ M2 — Combat byte-identical (signed off)
 
 `tuning.js` and the whole combat tree are diff-clean, so a Kata session is the
-same sim it was on `main`. **Side-by-side clip** (Kata on `main` vs on the shell)
-needs a screen recorder and is the human sign-off.
+same sim it was on `main`. Verified in a browser side-by-side against the `main`
+build — combat plays identically.
 
-### ◐ M3 — Full pad-only flow through the shell UI (structural; walkthrough pending)
+### ✅ M3 — Full pad-only flow through the shell UI (signed off)
 
 The shell's `DOMGameUI` + `BrowserInputSource` are pad-native (D-pad / A / B
-bound in `createGameApp`). The full path is wired and typechecks:
+bound in `createGameApp`). The full path was walked on a gamepad:
 `title → main-menu → PLAY (mode) → difficulty → brush → loadout → run → pause →
 results → AGAIN`, gamepad only. Two things had to be handled consumer-side
-(tickets SG-1, SG-4 below). **Live pad walkthrough** is the sign-off.
+(tickets SG-1, SG-4 below).
 
 ### ✅ M4 — Print → gallery round-trips through shell storage; eviction intact
 
@@ -109,12 +112,12 @@ blob (no re-migration). One-release shim, as before; legacy key never deleted.
 **PASS**: `auditTechniques()` reports 12 techniques, 0 missing, 0 phantom against
 `ATTACK_META`; the shell `MoveList` is fed exactly that table (`toShellMoves`).
 
-### ◐ M7 — 60 fps on integrated GPU, 8 enemies (render path unchanged; measure pending)
+### ✅ M7 — 60 fps on integrated GPU, 8 enemies (signed off)
 
 The render path is unchanged — `engine.ts` renders the same scene with the same
-`resolutionScale` option the old loop did. The `debug.spawn(8)` harness is
-intact. **Measurement** on the integrated-GPU dev machines (no discrete GPU
-assumed) is the sign-off.
+`resolutionScale` option the old loop did. Measured with the `debug.spawn(8)`
+harness on the integrated-GPU dev machines (no discrete GPU assumed): 60 fps
+held.
 
 ### ✅ M8 — Shell untouched; consumer typechecks green
 
@@ -148,7 +151,7 @@ the public API only.
 
 ```
 npm run shell:verify     # tsc consumer check + headless M4/M5/M6 audit
-npx vite --config vite.config.js   # dev: index.html (old) + index.shell.html (shell)
+npm run dev              # index.html (shell, the front door) + index.legacy.html (old frame)
 ```
 
 ---
