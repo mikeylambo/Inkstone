@@ -4,8 +4,8 @@
 
 **Document status:** Living flagship GDD  
 **Current playable:** V0.4 — Combat Calligraphy  
-**Primary genre:** 3D character-action scoresmith / combat calligraphy  
-**Current technology:** Three.js + deterministic fixed-step simulation, wrapped by the SLU Web Shell production architecture
+**Current technology:** Three.js + deterministic fixed-step simulation + bespoke V0.2.6-era app frame  
+**Target production architecture:** modern SLU Web Shell around the existing Inkstone simulation
 
 ---
 
@@ -95,14 +95,7 @@ The Archive is therefore part score history, part replay history, and part galle
 
 Progression should primarily expand what the player can express, not inflate damage numbers.
 
-A stronger player gains:
-
-- more techniques,
-- more stroke relationships,
-- more ways to alter existing ink,
-- more targets visible at high style,
-- more Finishing Stroke verbs,
-- and greater ability to compose several systems at once.
+A stronger player gains more techniques, more stroke relationships, more ways to alter existing ink, more targets visible at high style, more Finishing Stroke verbs, and greater ability to compose several systems at once.
 
 ---
 
@@ -135,14 +128,7 @@ Features that do not reinforce this chain require exceptional justification.
 
 A standard authored Scroll should target roughly **10–15 minutes** on a clean clear, with score-chasing and mastery supporting much longer replay value.
 
-A Scroll contains:
-
-- opening combat statement,
-- escalation or spatial complication,
-- enemy composition change,
-- one mechanical test of the current chapter’s language,
-- climax encounter or boss beat,
-- Finished Calligraphy result and Archive save.
+A Scroll contains an opening combat statement, escalation or spatial complication, enemy composition change, one mechanical test of the current chapter’s language, a climax encounter or boss beat, and a Finished Calligraphy result with Archive save.
 
 ### 4.3 Long-term loop
 
@@ -156,23 +142,7 @@ The game should support both a player who wants to finish the Pilgrimage and a p
 
 ### 5.1 Existing foundation
 
-The current playable already supports:
-
-- movement,
-- 3-hit light string,
-- launcher,
-- dive heavy,
-- jump,
-- dash,
-- parry,
-- lock-on,
-- directional lock-on techniques,
-- camera control,
-- hit-stop and shake tuning,
-- deterministic hit resolution,
-- wall/set-ink splats,
-- persistent stroke simulation,
-- relational glyph recognition.
+The current playable already supports movement, a 3-hit light string, launcher, dive heavy, jump, dash, parry, lock-on, directional lock-on techniques, camera control, hit-stop/shake tuning, deterministic hit resolution, wall/set-ink splats, persistent stroke simulation, and relational glyph recognition.
 
 Directional examples already in the build:
 
@@ -202,11 +172,7 @@ Cancels exist to let the player author intent, not to make every animation meani
 
 Air combat is important because the floor is the canvas.
 
-Leaving the floor should create a meaningful trade:
-
-- aerial routes offer safety, control, and combo extension,
-- grounded routes write more usable ink,
-- dive/return attacks reconnect the air route to the canvas.
+Leaving the floor should create a meaningful trade: aerial routes offer safety, control, and combo extension; grounded routes write more usable ink; dive/return attacks reconnect the air route to the canvas.
 
 The best play should move fluidly between those states.
 
@@ -218,16 +184,7 @@ The best play should move fluidly between those states.
 
 Every stroke has an owner. Player and Stain ink can coexist and contest space.
 
-Enemy design should increasingly attack the player’s authorship of the canvas by:
-
-- staining,
-- smearing,
-- absorbing,
-- overwriting,
-- drying,
-- breaking,
-- redirecting,
-- or counter-writing ink.
+Enemy design should increasingly attack the player’s authorship of the canvas by staining, smearing, absorbing, overwriting, drying, breaking, redirecting, or counter-writing ink.
 
 ### 6.2 State readability
 
@@ -247,14 +204,7 @@ Old marks may fade faster under load, but a mechanically active mark must never 
 
 ### 7.1 Recognition rules
 
-All combat glyphs must be:
-
-- relational,
-- deterministic,
-- derived from real stroke paths,
-- incrementally recognized,
-- spatially readable,
-- and useful even when discovered accidentally before being mastered deliberately.
+All combat glyphs must be relational, deterministic, derived from real stroke paths, incrementally recognized, spatially readable, and useful even when discovered accidentally before being mastered deliberately.
 
 ### 7.2 Learning curve
 
@@ -268,13 +218,7 @@ The Cross is currently the “free discovery” form. Enso and Triad require mor
 
 The final game should favor a **small, deeply interacting lexicon** over dozens of shallow symbols.
 
-A launch target of roughly **6–10 combat forms** is sufficient if each form:
-
-- has multiple valid constructions,
-- changes positioning or world state,
-- interacts with Stain behavior,
-- participates in style evaluation,
-- and remains useful after the tutorial chapter in which it is introduced.
+A launch target of roughly **6–10 combat forms** is sufficient if each form has multiple valid constructions, changes positioning or world state, interacts with Stain behavior, participates in style evaluation, and remains useful after the tutorial chapter in which it is introduced.
 
 New forms are added only when their gameplay meaning is distinct.
 
@@ -284,10 +228,7 @@ New forms are added only when their gameplay meaning is distinct.
 
 ### 8.1 Two outputs from one truth
 
-The same RunRecord should support:
-
-1. a **live style state** used during combat, and
-2. an **end-of-run evaluation** used for Finished Calligraphy, records, and leaderboards.
+The same RunRecord should support a **live style state** used during combat and an **end-of-run evaluation** used for Finished Calligraphy, records, and leaderboards.
 
 The live state uses a rolling window and hysteresis so reality does not visibly flicker every time a rank boundary is crossed. The end evaluator reads the whole run.
 
@@ -297,67 +238,27 @@ The established five axes are:
 
 #### Flow
 
-How continuously and intentionally the player maintains the fight.
-
-Possible evidence:
-
-- meaningful action continuity,
-- movement between targets,
-- cancel timing,
-- low dead-time,
-- maintaining control through transitions.
+How continuously and intentionally the player maintains the fight. Evidence can include meaningful action continuity, movement between targets, cancel timing, low dead-time, and maintaining control through transitions.
 
 #### Variety
 
-How broad the player’s expressive vocabulary is.
-
-Possible evidence:
-
-- unique techniques,
-- unique glyphs,
-- diminishing return on exact repetition,
-- varied kill/control routes.
+How broad the player’s expressive vocabulary is. Evidence can include unique techniques, unique glyphs, diminishing return on exact repetition, and varied kill/control routes.
 
 Variety must never become “press every move once.” Repetition is allowed when the situation meaningfully calls for it.
 
 #### Precision
 
-How accurately the player executes intent.
-
-Possible evidence:
-
-- whiffs,
-- parry timing,
-- correctly spaced hits,
-- deliberate glyph completion,
-- avoided friendly/self-defeating ink interactions.
+How accurately the player executes intent. Evidence can include whiffs, parry timing, correctly spaced hits, deliberate glyph completion, and avoided self-defeating ink interactions.
 
 #### Composition
 
-How intelligently the player uses the persistent canvas.
-
-Possible evidence:
-
-- useful glyphs,
-- reusing prior marks,
-- routing movement along Wet ink,
-- splatting into Set ink,
-- multi-enemy form value,
-- chaining one written state into another.
+How intelligently the player uses the persistent canvas. Evidence can include useful glyphs, reusing prior marks, routing movement along Wet ink, splatting into Set ink, multi-enemy form value, and chaining one written state into another.
 
 This is the axis that makes INKSTONE unlike a conventional action-game rank system.
 
 #### Control
 
-How completely the player governs risk and enemy behavior.
-
-Possible evidence:
-
-- damage taken,
-- crowd control,
-- denied attacks,
-- positioning,
-- keeping multiple Stains managed without passive play.
+How completely the player governs risk and enemy behavior. Evidence can include damage taken, crowd control, denied attacks, positioning, and keeping multiple Stains managed without passive play.
 
 ### 8.3 Rank language
 
@@ -379,7 +280,7 @@ The crucial rule: **higher rank exposes new targets more than it grants raw nume
 
 Proposed perception ladder:
 
-- **D–C — Surface:** only physical bodies, attacks, and ordinary canvas state are readable.
+- **D–C — Surface:** physical bodies, attacks, and ordinary canvas state.
 - **B — Pattern:** enemy rhythm and latent stroke relationships become more visually legible.
 - **A — Pigment:** Pigment-bearing weak points/essence can appear and be captured through skilled play.
 - **S — Inscription:** hidden environmental or enemy inscriptions become targetable; some encounter rules can be altered.
@@ -398,10 +299,7 @@ It is **not generic mana** and should not refill passively on a timer.
 
 The player captures Pigment by reaching sufficient style, exposing a Pigment-bearing target, and interacting with it correctly through the combat/calligraphy system.
 
-Pigment serves two related purposes:
-
-- an in-run mastery resource that enables or strengthens Finishing Stroke opportunities,
-- a record of what kinds of deeper combat truths the player has learned to access.
+Pigment serves two related purposes: an in-run mastery resource that enables or strengthens Finishing Stroke opportunities, and a record of what kinds of deeper combat truths the player has learned to access.
 
 Do not create a color-element chart simply to fill the Pigment tab. Pigment types should only be introduced when enemies, bosses, or progression need mechanically distinct categories.
 
@@ -422,16 +320,7 @@ The transition should feel like the player has reached beneath the fight rather 
 
 ### 10.2 Possible verbs
 
-Depending on the visible target and player mastery, one stroke can:
-
-- execute a defeated or exposed Stain,
-- complete a large unfinished glyph,
-- sever a boss mechanic or phase anchor,
-- erase a dangerous field,
-- capture Pigment,
-- cut a link between enemies,
-- cut a shadow, name, bond, rule, or other metaphysical target,
-- or finalize a Scroll-specific objective.
+Depending on the visible target and player mastery, one stroke can execute an exposed Stain, complete a large unfinished glyph, sever a boss mechanic or phase anchor, erase a dangerous field, capture Pigment, cut a link between enemies, cut a shadow/name/bond/rule or other metaphysical target, or finalize a Scroll-specific objective.
 
 ### 10.3 Skill requirement
 
@@ -459,16 +348,7 @@ Ranged space controller. Throws enemy ink at the floor and turns parts of the ca
 
 Future Stains should be designed around verbs that interact with the same canvas rules rather than bespoke gimmick logic.
 
-Useful roles include enemies that:
-
-- erase player ink,
-- smear or relocate it,
-- harden or prematurely dry it,
-- overwrite it with enemy ink,
-- pin the player to a region,
-- counter-write forms,
-- protect another Stain’s metaphysical layer,
-- or force the player to choose between preserving a composition and abandoning it.
+Useful roles include enemies that erase player ink, smear or relocate it, harden or prematurely dry it, overwrite it with enemy ink, pin the player to a region, counter-write forms, protect another Stain’s metaphysical layer, or force the player to choose between preserving a composition and abandoning it.
 
 The 1.0 roster should be large enough to create qualitatively different encounter compositions without requiring one-off rules for every enemy. Rough target: **8–10 core Stain archetypes plus authored variants**.
 
@@ -496,9 +376,7 @@ Narrative specifics remain intentionally open until the combat/metaphysical rule
 
 ### 12.2 Scrolls
 
-Pure authored missions for score, mastery, records, and replay.
-
-Scrolls can exist inside Pilgrimage and as replayable standalone challenges.
+Pure authored missions for score, mastery, records, and replay. Scrolls can exist inside Pilgrimage and as replayable standalone challenges.
 
 ### 12.3 Daily Scroll
 
@@ -566,13 +444,7 @@ The screen should surface the five style axes once the evaluator is complete, fo
 
 ### 14.2 Archive
 
-Archive is the lasting memory of play:
-
-- Scroll Gallery,
-- Records,
-- Ink Record,
-- Leaderboards,
-- future replay/ghost viewing.
+Archive is the lasting memory of play: Scroll Gallery, Records, Ink Record, Leaderboards, and future replay/ghost viewing.
 
 A gallery print should be traceable back to the deterministic RunRecord that produced it whenever storage allows.
 
@@ -584,15 +456,7 @@ A gallery print should be traceable back to the deterministic RunRecord that pro
 
 **Paper is not a texture. Ink is not a particle effect. The world should feel materially written.**
 
-Visual priorities:
-
-- large calm areas of paper/negative space,
-- strong black ink mass,
-- visible bristle direction and stroke pressure,
-- selective vermilion seals and authored accent color,
-- readable silhouettes before detail,
-- 3D spatial clarity that can collapse convincingly into 2D calligraphy,
-- environment reactions that make style-rank perception feel like layers of the page being revealed.
+Visual priorities include large calm areas of paper/negative space, strong black ink mass, visible bristle direction and stroke pressure, selective vermilion seals and authored accent color, readable silhouettes before detail, 3D spatial clarity that can collapse convincingly into 2D calligraphy, and environment reactions that make style-rank perception feel like layers of the page being revealed.
 
 ### 15.2 Combat readability hierarchy
 
@@ -609,30 +473,11 @@ Beauty may never make the first five harder to read.
 
 ## 16. Audio and Music
 
-The musical identity should combine:
+The musical identity should combine emotionally expressive melodic/choral writing, hard mechanical or martial rhythmic pressure, and spacious minimalism that leaves room for brush contact and combat transients.
 
-- emotionally expressive melodic/choral writing,
-- hard mechanical or martial rhythmic pressure,
-- and spacious minimalism that leaves room for brush contact and combat transients.
+The score should react to authorship rather than only enemy count. Useful layers include base spatial ambience, combat pulse, style-rank harmonic expansion, glyph/form punctuation, high-rank Pigment texture, and Finishing Stroke near-silence followed by one decisive musical consequence.
 
-The score should react to authorship rather than only enemy count. Useful layers include:
-
-- base spatial ambience,
-- combat pulse,
-- style-rank harmonic expansion,
-- glyph/form punctuation,
-- high-rank Pigment texture,
-- Finishing Stroke near-silence followed by one decisive musical consequence.
-
-Sound design priorities:
-
-- bristle contact,
-- ink weight/state,
-- paper/fiber response,
-- parry clarity,
-- enemy tell grammar,
-- rank/perception reveal,
-- and distinct sonic ownership for player vs Stain ink.
+Sound design priorities are bristle contact, ink weight/state, paper/fiber response, parry clarity, enemy tell grammar, rank/perception reveal, and distinct sonic ownership for player vs Stain ink.
 
 ---
 
@@ -640,24 +485,9 @@ Sound design priorities:
 
 INKSTONE is controller-first but must remain fully usable with keyboard/mouse.
 
-Accessibility already established in the project includes options around:
+Accessibility already established in the project includes options around screen shake, hit-stop, flashes, camera motion, high-contrast tells, text size, and hold/toggle behavior.
 
-- screen shake,
-- hit-stop,
-- flashes,
-- camera motion,
-- high-contrast tells,
-- text size,
-- hold/toggle behavior.
-
-Future requirements:
-
-- independent gesture/timing assistance for Finishing Stroke,
-- clear non-color-only distinction between player and Stain ink,
-- style/perception information that does not rely only on visual saturation,
-- remappable semantic actions through the modern Shell,
-- robust pause/background lifecycle behavior,
-- UI stress/localization testing before release.
+Future requirements include independent gesture/timing assistance for Finishing Stroke, clear non-color-only distinction between player and Stain ink, style/perception information that does not rely only on saturation, remappable semantic actions through the modern Shell, robust pause/background lifecycle behavior, and UI stress/localization testing before release.
 
 Leaderboard comparability must explicitly record or classify any setting that alters simulation or score-relevant timing. Accessibility should remain available; competitive metadata should make conditions transparent rather than hiding options.
 
@@ -677,36 +507,9 @@ The target Shell composition is:
 
 `character-action + arcade`
 
-The SLU Web Shell owns production infrastructure such as:
+The SLU Web Shell owns production infrastructure such as lifecycle/session, semantic input, settings/accessibility storage, save migration/recovery, screens/focus/navigation, modes/difficulty/challenges, results/rankings/leaderboards, training/replay scaffolding, telemetry/diagnostics, content validation, performance budgets, platform services, certification, and smoke flow.
 
-- lifecycle/session,
-- semantic input,
-- settings/accessibility storage,
-- save migration/recovery,
-- screens/focus/navigation,
-- modes/difficulty/challenges,
-- results/rankings/leaderboards,
-- training/replay scaffolding,
-- telemetry/diagnostics,
-- content validation,
-- performance budgets,
-- platform services,
-- certification and smoke flow.
-
-INKSTONE retains Game DNA:
-
-- brush combat,
-- attack geometry,
-- player/enemy simulation,
-- persistent strokes,
-- ink lifecycle,
-- glyph recognition,
-- style evaluator semantics,
-- reality-rank perception,
-- Pigment,
-- Finishing Stroke,
-- bespoke visual/audio presentation,
-- authored Stain and Scroll content.
+INKSTONE retains Game DNA: brush combat, attack geometry, player/enemy simulation, persistent strokes, ink lifecycle, glyph recognition, style evaluator semantics, reality-rank perception, Pigment, Finishing Stroke, bespoke visual/audio presentation, and authored Stain/Scroll content.
 
 ### 18.3 Shell-out, game-in
 
@@ -751,15 +554,7 @@ If a smaller content count produces more distinct encounters and better replay, 
 
 ## 20. Non-Negotiables
 
-Do not turn INKSTONE into:
-
-- a normal action game with ink-themed VFX,
-- a drawing minigame interrupted by combat,
-- a move-recipe glyph system where attacks secretly carry symbol tags,
-- a loot-stat RPG where numbers replace mastery,
-- a style meter that changes only score text,
-- a super meter that ends in a canned cinematic with no player stroke,
-- or a canvas whose visible and simulated geometry can disagree.
+Do not turn INKSTONE into a normal action game with ink-themed VFX, a drawing minigame interrupted by combat, a move-recipe glyph system where attacks secretly carry symbol tags, a loot-stat RPG where numbers replace mastery, a style meter that changes only score text, a super meter that ends in a canned cinematic with no player stroke, or a canvas whose visible and simulated geometry can disagree.
 
 The test for every major feature is:
 
