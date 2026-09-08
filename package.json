@@ -1,15 +1,16 @@
 {
-  "name": "sumi",
+  "name": "inkstone",
   "private": true,
   "version": "0.4.0",
   "type": "module",
-  "description": "SUMI (codename SlayRank) - vertical slice. V0.2.5: The Shell.",
+  "description": "INKSTONE — deterministic character-action combat calligraphy.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@slu/web-shell": "git+https://github.com/mikeylambo/Web-Game-Shell-v1.02.git#c43441a5a801f72bad39ea1dc97d6f1f3fa709d5",
     "three": "0.185.1",
     "tone": "15.1.22"
   },
