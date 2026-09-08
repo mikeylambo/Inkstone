@@ -25,6 +25,12 @@ import { Game, STATE, devMode } from './game.js';
 import { Profile } from './profile.js';
 import { PlayerOptions, Hooks } from './playeroptions.js';
 import { migrateOnce } from './storage.js';
+import { createInkstoneShellBridge } from './shell/bridge.js';
+import {
+  captureParitySnapshot,
+  compareParitySnapshots,
+  parityFingerprint,
+} from './shell/parity.js';
 
 // Build version, injected from package.json by vite.config.js
 const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -113,6 +119,58 @@ Hooks.onAudio = () => Audio.applyVolumes();
 
 migrateOnce();
 PlayerOptions.load();
+
+// --------------------------------------------------------- V0.5 Shell seam
+//
+// The modern SLU Shell boots beside the existing Game first. Game remains the
+// authority while the bridge mirrors phases and gathers production telemetry.
+// No combat, renderer or gameplay-input ownership moves in this step.
+
+const paritySnapshot = () => captureParitySnapshot({ game, World, TUNING });
+let shellBridge = null;
+
+try {
+  shellBridge = await createInkstoneShellBridge({
+    version: VERSION,
+    dev: devMode(),
+    snapshot: paritySnapshot,
+  });
+
+  // Mirror legacy state into the Shell without changing legacy behavior.
+  const legacySetState = game.setState.bind(game);
+  game.setState = (next) => {
+    const prev = game.state;
+    const result = legacySetState(next);
+    shellBridge.syncState(game.state, prev);
+    return result;
+  };
+
+  // Record run lifecycle semantically. These wrappers do not mutate run data.
+  const legacyStartRun = game.startRun.bind(game);
+  game.startRun = (mode, opts = {}) => {
+    const result = legacyStartRun(mode, opts);
+    const run = game.run;
+    shellBridge.runStarted({
+      mode: run?.mode ?? mode,
+      seed: run?.seed ?? run?.config?.seed ?? null,
+      scroll: run?.config?.scroll ?? opts.scroll ?? null,
+      difficulty: run?.config?.difficulty ?? null,
+      modifiers: run?.config?.modifiers ?? [],
+    });
+    return result;
+  };
+
+  const legacyFinishRun = game.finishRun.bind(game);
+  game.finishRun = async () => {
+    const result = await legacyFinishRun();
+    if (game.pendingSummary) shellBridge.runFinished(game.pendingSummary);
+    return result;
+  };
+} catch (error) {
+  // During the migration the old game remains a safe fallback. A Shell boot
+  // failure should be visible to developers, not prevent a combat parity test.
+  console.error('[INKSTONE V0.5] Shell shadow boot failed; legacy authority retained.', error);
+}
 
 // ------------------------------------------------------------------ audio
 
@@ -230,6 +288,10 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+window.addEventListener('beforeunload', () => {
+  if (shellBridge) void shellBridge.dispose();
+});
+
 game.boot();
 requestAnimationFrame(frame);
 
@@ -239,6 +301,13 @@ const HARNESS = {
   VERSION,
   World, TUNING, Input, Audio, scene, camera, renderer,
   game, pauseMenu, hud, Profile, STATE, simStep, STEP, devMode, inkCanvas,
+  shellBridge,
+  shell: shellBridge?.shell || null,
+
+  /** V0.5 migration truth: seed/run/canvas facts that must survive Shell work. */
+  paritySnapshot,
+  compareParity: compareParitySnapshots,
+  parityFingerprint: () => parityFingerprint(paritySnapshot()),
 
   /** Dev: bounce every procedural sound to WAV via the local file sink. */
   async exportAudio(sink) {
